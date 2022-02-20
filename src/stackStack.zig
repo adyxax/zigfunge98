@@ -11,33 +11,18 @@ pub const StackStack = struct {
         }
         self.data.deinit();
     }
-    pub fn duplicate(self: *StackStack) !void {
-        return self.toss.*.duplicate();
-    }
     pub fn init(allocator: std.mem.Allocator) !StackStack {
         var ss = std.ArrayList(stack.Stack).init(allocator);
         errdefer ss.deinit();
-        var toss = try ss.addOne();
-        toss.* = stack.Stack.init(allocator);
+        var s = try ss.addOne();
+        s.* = stack.Stack.init(allocator);
         return StackStack{
             .data = ss,
-            .toss = toss,
+            .toss = s,
         };
     }
-    pub fn pop(self: *StackStack) i64 {
-        return self.toss.*.pop();
-    }
-    pub fn popVector(self: *StackStack) [2]i64 {
-        return self.toss.*.popVector();
-    }
-    pub fn push(self: *StackStack, n: i64) !void {
-        return self.toss.*.append(n);
-    }
-    pub fn pushVector(self: *StackStack, v: [2]i64) !void {
-        return self.toss.*.pushVector(v);
-    }
-    pub fn swap(self: *StackStack) !void {
-        return self.toss.*.swap();
+    pub inline fn toss(self: *StackStack) *stack.Stack {
+        return self.toss;
     }
 };
 
