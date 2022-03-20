@@ -4,8 +4,10 @@ const Line = struct {
     x: i64 = 0,
     data: std.ArrayList(i64),
     pub fn blank(l: *Line, x: i64) void {
-        const lx = @intCast(i64, l.data.items.len);
-        if (x > l.x and x < l.x + lx - 1) { // just set the value
+        const lx = @intCast(i64, l.len());
+        if (x < l.x or x > l.x + lx) { // outside the field
+            return;
+        } else if (x > l.x and x < l.x + lx - 1) { // just set the value
             l.data.items[@intCast(usize, x - l.x)] = ' ';
         } else if (lx == 1) { // this was the last character on the line
             l.data.items.len = 0;
@@ -13,10 +15,10 @@ const Line = struct {
             var i: usize = 1;
             while (l.data.items[i] == ' ') : (i += 1) {}
             l.x += @intCast(i64, i);
-            std.mem.copy(i64, l.data.items[0 .. l.data.items.len - i], l.data.items[i..]);
+            std.mem.copy(i64, l.data.items[0 .. l.len() - i], l.data.items[i..]);
             l.data.items.len -= i;
-        } else if (x == l.x + lx - 1) { // we need to remove trailing spaces
-            var i: usize = l.data.items.len - 1;
+        } else { // we need to remove trailing spaces
+            var i: usize = l.len() - 1;
             while (l.data.items[i - 1] == ' ') : (i -= 1) {}
             l.data.items.len = i;
         }
@@ -56,7 +58,7 @@ const Line = struct {
         try std.testing.expectEqual(l.x, 1);
         try std.testing.expectEqualSlices(i64, l.data.items, plus3[0..]);
         l.blank(1);
-        try std.testing.expectEqual(l.data.items.len, 0);
+        try std.testing.expectEqual(l.len(), 0);
     }
     pub fn deinit(self: *Line) void {
         self.data.deinit();
@@ -67,19 +69,22 @@ const Line = struct {
             .data = c,
         };
     }
+    pub inline fn len(l: Line) usize {
+        return l.data.items.len;
+    }
     pub fn set(l: *Line, x: i64, v: i64) !void {
-        if (l.data.items.len == 0) { // this is en empty line
+        if (l.len() == 0) { // this is en empty line
             l.x = x;
             try l.data.append(v);
             return;
         }
-        const lx = @intCast(i64, l.data.items.len);
+        const lx = @intCast(i64, l.len());
         if (x >= l.x and x < l.x + lx) { // just set the value
             l.data.items[@intCast(usize, x - l.x)] = v;
         } else if (x < l.x) { // we need to shift right and add leading spaces
-            const oldLen = l.data.items.len;
+            const oldLen = l.len();
             l.data.items.len += @intCast(usize, l.x - x);
-            try l.data.ensureUnusedCapacity(l.data.items.len);
+            try l.data.ensureUnusedCapacity(l.len());
             std.mem.copyBackwards(i64, l.data.items[@intCast(usize, l.x - x)..], l.data.items[0..oldLen]);
             l.data.items[0] = v;
             var i: usize = 1;
@@ -88,7 +93,7 @@ const Line = struct {
             }
             l.x = x;
         } else { // we need to add trailing spaces
-            var i: usize = l.data.items.len;
+            var i: usize = l.len();
             while (i < x - l.x) : (i += 1) {
                 try l.data.append(' ');
             }
@@ -131,13 +136,87 @@ const Field = struct {
     y: i64 = 0,
     lines: std.ArrayList(Line),
     lx: usize = 0,
-    pub fn blank(f: *Field, x: i64, y: i64) void {
+    pub fn blank(f: *Field, x: i64, y: i64) !void {
         const ly = @intCast(i64, f.lines.items.len);
+        if (ly == 0) return error.EmptyFieldError;
         if (y < f.y or y > f.y + ly) return; // outside the field
         var l = &f.lines.items[@intCast(usize, y - f.y)];
-        if (l.data.items.len == 0) return; // the line is already empty
+        if (l.len() == 0) return; // the line is already empty
         l.blank(x);
-        return; // TODO
+        if (l.len() == 0) {
+            if (ly == 1) {
+                return error.EmptyFieldError;
+            } else if (y == f.y) { // we need to remove leading lines
+                l.deinit();
+                var i: usize = 1;
+                while (f.lines.items[i].len() == 0) : (i += 1) {
+                    f.lines.items[i].deinit();
+                }
+                f.y += @intCast(i64, i);
+                std.mem.copy(Line, f.lines.items[0 .. f.lines.items.len - i], f.lines.items[i..]);
+                f.lines.items.len -= i;
+            } else if (y == f.y + ly - 1) { // we need to remove trailing lines
+                l.deinit();
+                var i: usize = @intCast(usize, ly) - 2;
+                while (f.lines.items[i].len() == 0) : (i -= 1) {
+                    f.lines.items[i].deinit();
+                }
+                f.lines.items.len = i + 1;
+            }
+        }
+        if (x == f.x or x == f.x + @intCast(i64, f.lx) - 1) { // recalculate boundaries
+            f.x = std.math.maxInt(i64);
+            var x2: i64 = std.math.minInt(i64);
+            for (f.lines.items) |line| {
+                if (line.len() == 0) continue;
+                if (f.x > line.x) f.x = line.x;
+                if (x2 < line.x + @intCast(i64, line.len())) x2 = line.x + @intCast(i64, line.len());
+            }
+            f.lx = @intCast(usize, x2 - f.x);
+        }
+    }
+    test "blank" {
+        var f = try Field.init(std.testing.allocator);
+        defer f.deinit();
+        try std.testing.expectEqual(f.blank(1, 0), error.EmptyFieldError);
+        var moins2 = Line.init(std.testing.allocator);
+        try moins2.set(-3, 'a');
+        var moins1 = Line.init(std.testing.allocator);
+        try moins1.set(6, 'b');
+        var zero = Line.init(std.testing.allocator);
+        try zero.set(-4, 'c');
+        var un = Line.init(std.testing.allocator);
+        try un.set(-8, 'd');
+        var deux = Line.init(std.testing.allocator);
+        try deux.set(12, 'e');
+        const initial = [_]Line{ moins2, moins1, zero, un, deux };
+        try f.lines.appendSlice(initial[0..]);
+        f.x = -8;
+        f.lx = 21;
+        f.y = -2;
+        try f.blank(6, -1);
+        try std.testing.expectEqual(f.x, -8);
+        try std.testing.expectEqual(f.lx, 21);
+        try std.testing.expectEqual(f.y, -2);
+        try std.testing.expectEqual(f.lines.items.len, 5);
+        try std.testing.expectEqual(f.lines.items[1].len(), 0);
+        try f.blank(-3, -2);
+        try std.testing.expectEqual(f.x, -8);
+        try std.testing.expectEqual(f.lx, 21);
+        try std.testing.expectEqual(f.y, 0);
+        try std.testing.expectEqual(f.lines.items.len, 3);
+        try f.blank(-8, 1);
+        try std.testing.expectEqual(f.x, -4);
+        try std.testing.expectEqual(f.lx, 17);
+        try std.testing.expectEqual(f.y, 0);
+        try std.testing.expectEqual(f.lines.items.len, 3);
+        try std.testing.expectEqual(f.lines.items[1].len(), 0);
+        try f.blank(12, 2);
+        try std.testing.expectEqual(f.x, -4);
+        try std.testing.expectEqual(f.lx, 1);
+        try std.testing.expectEqual(f.y, 0);
+        try std.testing.expectEqual(f.lines.items.len, 1);
+        try std.testing.expectEqual(f.blank(-4, 0), error.EmptyFieldError);
     }
     pub fn deinit(self: *Field) void {
         for (self.lines.items) |*l| {
@@ -147,9 +226,6 @@ const Field = struct {
     }
     pub fn init(allocator: std.mem.Allocator) !Field {
         var lines = std.ArrayList(Line).init(allocator);
-        var line = try lines.addOne();
-        line.* = Line.init(allocator);
-        try line.set(0, '@');
         return Field{
             .allocator = allocator,
             .lines = lines,
