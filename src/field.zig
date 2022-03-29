@@ -63,6 +63,10 @@ const Line = struct {
     fn deinit(self: *Line) void {
         self.data.deinit();
     }
+    fn get(l: *Line, x: i64) i64 {
+        if (x >= l.x and x < l.x + @intCast(i64, l.len())) return l.data.items[@intCast(usize, x - @intCast(i64, l.x))];
+        return ' ';
+    }
     fn init(allocator: std.mem.Allocator) Line {
         const c = std.ArrayList(i64).init(allocator);
         return Line{
@@ -129,6 +133,11 @@ const Line = struct {
         const e = [_]i64{ 'e', ' ', 'd', 'a', 'b', ' ', 'c' };
         try std.testing.expectEqual(l.x, -4);
         try std.testing.expectEqualSlices(i64, l.data.items, e[0..]);
+        try std.testing.expectEqual(l.get(-5), ' ');
+        try std.testing.expectEqual(l.get(-4), 'e');
+        try std.testing.expectEqual(l.get(-3), ' ');
+        try std.testing.expectEqual(l.get(2), 'c');
+        try std.testing.expectEqual(l.get(3), ' ');
     }
 };
 
@@ -141,7 +150,7 @@ const Field = struct {
     pub fn blank(f: *Field, x: i64, y: i64) !void {
         const ly = @intCast(i64, f.lines.items.len);
         if (ly == 0) return error.EmptyFieldError;
-        if (y < f.y or y > f.y + ly) return; // outside the field
+        if (y < f.y or y >= f.y + ly) return; // outside the field
         var l = &f.lines.items[@intCast(usize, y - f.y)];
         if (l.len() == 0) return; // the line is already empty
         l.blank(x);
@@ -226,6 +235,10 @@ const Field = struct {
         }
         self.lines.deinit();
     }
+    pub fn get(f: *Field, x: i64, y: i64) i64 {
+        if (y >= f.y and y < f.y + @intCast(i64, f.lines.items.len)) return f.lines.items[@intCast(usize, y - @intCast(i64, f.y))].get(x);
+        return ' ';
+    }
     pub fn init(allocator: std.mem.Allocator) !Field {
         var lines = std.ArrayList(Line).init(allocator);
         return Field{
@@ -233,12 +246,62 @@ const Field = struct {
             .lines = lines,
         };
     }
-    //pub fn load(f: *Field, reader: std.io.Reader) {
-    //    var br = std.io.bufferedReader(reader);
-    //    var leadingSpaces:u64 = 0;
-    //    var trailingSpaces:u64 = 0;
-    //    var lastReadIsCR: bool = false;
-    //}
+    pub fn load(f: *Field, reader: anytype) !void {
+        if (f.lines.items.len > 0) return error.FIELD_NOT_EMPTY;
+        var lastIsCR = false;
+        var x: i64 = 0;
+        var y: i64 = 0;
+        while (true) {
+            var i: usize = 0;
+            var buffer: [4096]u8 = undefined;
+            var l = try reader.read(buffer[0..]);
+            if (l == 0) return;
+            while (i < l) : (i += 1) {
+                if (lastIsCR) {
+                    lastIsCR = false;
+                    switch (buffer[i]) {
+                        '\n' => continue,
+                        else => return error.GOT_CR_WITHOUT_LF,
+                    }
+                }
+                switch (buffer[i]) {
+                    12 => x += 1,
+                    '\r' => {
+                        x = 0;
+                        y += 1;
+                        lastIsCR = true;
+                    },
+                    '\n' => {
+                        x = 0;
+                        y += 1;
+                    },
+                    else => {
+                        try f.set(x, y, buffer[i]);
+                        x += 1;
+                    },
+                }
+            }
+        }
+    }
+    test "load" {
+        const crData = [_]u8{'v'} ** 4095 ++ "\r\n @";
+        const cr = std.io.fixedBufferStream(crData).reader();
+        var f = try Field.init(std.testing.allocator);
+        defer f.deinit();
+        try f.load(cr);
+        try std.testing.expectEqual(f.x, 0);
+        try std.testing.expectEqual(f.y, 0);
+        try std.testing.expectEqual(f.lx, 4095);
+        try std.testing.expectEqual(f.lines.items.len, 2);
+        try std.testing.expectEqual(f.lines.items[0].data.items[0], 'v');
+        try std.testing.expectEqual(f.lines.items[1].x, 1);
+        try std.testing.expectEqual(f.lines.items[1].data.items[0], '@');
+        const cr2 = std.io.fixedBufferStream("v\r@").reader();
+        try std.testing.expectEqual(f.load(cr2), error.FIELD_NOT_EMPTY);
+        var f2 = try Field.init(std.testing.allocator);
+        defer f2.deinit();
+        try std.testing.expectEqual(f2.load(cr2), error.GOT_CR_WITHOUT_LF);
+    }
     pub fn set(f: *Field, x: i64, y: i64, v: i64) !void {
         if (v == ' ') return f.blank(x, y);
         if (y >= f.y) {
@@ -279,7 +342,6 @@ const Field = struct {
         }
         return;
     }
-
     test "set" {
         var f = try Field.init(std.testing.allocator);
         defer f.deinit();
@@ -305,14 +367,34 @@ const Field = struct {
         try std.testing.expectEqual(f.lines.items.len, 6);
         try std.testing.expectEqual(f.x, -7);
         try std.testing.expectEqual(f.lx, 20);
+        try std.testing.expectEqual(f.get(0, 0), '0');
+        try std.testing.expectEqual(f.get(8, 2), '2');
+        try std.testing.expectEqual(f.get(9, 2), ' ');
     }
-    //test "minimal" {
-    //    var f = try Field.init(std.testing.allocator);
-    //    defer f.deinit();
-    //    f.blank(0, 0);
-    //}
 };
 
 test "all" {
     std.testing.refAllDecls(@This());
+}
+test "hello" {
+    const hello = std.io.fixedBufferStream("64+\"!dlroW ,olleH\">:#,_@\n").reader();
+    var f = try Field.init(std.testing.allocator);
+    defer f.deinit();
+    try f.load(hello);
+    try std.testing.expectEqual(f.x, 0);
+    try std.testing.expectEqual(f.y, 0);
+    try std.testing.expectEqual(f.lx, 24);
+    try std.testing.expectEqual(f.lines.items.len, 1);
+    try std.testing.expectEqual(f.lines.items[0].data.items[0], '6');
+}
+test "minimal" {
+    const minimal = std.io.fixedBufferStream("@").reader();
+    var f = try Field.init(std.testing.allocator);
+    defer f.deinit();
+    try f.load(minimal);
+    try std.testing.expectEqual(f.x, 0);
+    try std.testing.expectEqual(f.y, 0);
+    try std.testing.expectEqual(f.lx, 1);
+    try std.testing.expectEqual(f.lines.items.len, 1);
+    try std.testing.expectEqual(f.lines.items[0].data.items[0], '@');
 }
