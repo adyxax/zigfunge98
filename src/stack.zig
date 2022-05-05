@@ -2,12 +2,14 @@ const std = @import("std");
 const vector = std.meta.Vector(2, i64);
 
 pub const Stack = struct {
+    allocator: std.mem.Allocator,
     data: std.ArrayList(i64),
     pub fn clear(self: *Stack) void {
         self.data.clearRetainingCapacity();
     }
     pub fn deinit(self: *Stack) void {
         self.data.deinit();
+        self.allocator.destroy(self);
     }
     pub fn duplicate(self: *Stack) !void {
         if (self.data.items.len > 0) {
@@ -15,7 +17,7 @@ pub const Stack = struct {
         }
     }
     test "duplicate" {
-        var s = Stack.init(std.testing.allocator);
+        var s = try Stack.init(std.testing.allocator);
         defer s.deinit();
         try s.duplicate();
         try std.testing.expectEqual(s.popVector(), @as(vector, [2]i64{ 0, 0 }));
@@ -25,10 +27,11 @@ pub const Stack = struct {
         try std.testing.expectEqual(s.popVector(), @as(vector, [2]i64{ 2, 2 }));
         try std.testing.expectEqual(s.popVector(), @as(vector, [2]i64{ 1, 2 }));
     }
-    pub fn init(allocator: std.mem.Allocator) Stack {
-        return Stack{
-            .data = std.ArrayList(i64).init(allocator),
-        };
+    pub fn init(allocator: std.mem.Allocator) !*Stack {
+        var s = try allocator.create(Stack);
+        s.allocator = allocator;
+        s.data = std.ArrayList(i64).init(allocator);
+        return s;
     }
     pub fn pop(self: *Stack) i64 {
         return if (self.data.popOrNull()) |v| v else 0;
@@ -45,7 +48,7 @@ pub const Stack = struct {
         try self.data.appendSlice(v[0..]);
     }
     test "pushVector" {
-        var s = Stack.init(std.testing.allocator);
+        var s = try Stack.init(std.testing.allocator);
         defer s.deinit();
         try s.pushVector([2]i64{ 1, -1 });
         try s.pushVector([2]i64{ 2, -2 });
@@ -60,7 +63,7 @@ pub const Stack = struct {
         try self.pushVector([2]i64{ v[1], v[0] });
     }
     test "swap" {
-        var s = Stack.init(std.testing.allocator);
+        var s = try Stack.init(std.testing.allocator);
         defer s.deinit();
         try s.swap();
         try std.testing.expectEqual(s.popVector(), @as(vector, [2]i64{ 0, 0 }));
