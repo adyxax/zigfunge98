@@ -149,16 +149,16 @@ pub const Field = struct {
     y: i64 = 0,
     lines: std.ArrayList(*Line),
     lx: usize = 0,
-    pub fn blank(f: *Field, x: i64, y: i64) void {
+    pub fn blank(f: *Field, x: i64, y: i64) !void {
         const ly = @intCast(i64, f.lines.items.len);
-        if (ly == 0) return;
+        if (ly == 0) return error.EmptyFieldError;
         if (y < f.y or y >= f.y + ly) return; // outside the field
         var l = f.lines.items[@intCast(usize, y - f.y)];
         if (l.len() == 0) return; // the line is already empty
         l.blank(x);
         if (l.len() == 0) {
             if (ly == 1) {
-                return;
+                return error.EmptyFieldError;
             } else if (y == f.y) { // we need to remove leading lines
                 l.deinit();
                 var i: usize = 1;
@@ -191,6 +191,9 @@ pub const Field = struct {
     test "blank" {
         var f = try Field.init(std.testing.allocator);
         defer f.deinit();
+        f.lines.items[0].deinit();
+        f.lines.clearRetainingCapacity();
+        try std.testing.expectEqual(f.blank(1, 0), error.EmptyFieldError);
         var moins2 = try Line.init(std.testing.allocator);
         try moins2.set(-3, 'a');
         var moins1 = try Line.init(std.testing.allocator);
@@ -206,28 +209,29 @@ pub const Field = struct {
         f.x = -8;
         f.lx = 21;
         f.y = -2;
-        f.blank(6, -1);
+        try f.blank(6, -1);
         try std.testing.expectEqual(f.x, -8);
         try std.testing.expectEqual(f.lx, 21);
         try std.testing.expectEqual(f.y, -2);
         try std.testing.expectEqual(f.lines.items.len, 5);
         try std.testing.expectEqual(f.lines.items[1].len(), 0);
-        f.blank(-3, -2);
+        try f.blank(-3, -2);
         try std.testing.expectEqual(f.x, -8);
         try std.testing.expectEqual(f.lx, 21);
         try std.testing.expectEqual(f.y, 0);
         try std.testing.expectEqual(f.lines.items.len, 3);
-        f.blank(-8, 1);
+        try f.blank(-8, 1);
         try std.testing.expectEqual(f.x, -4);
         try std.testing.expectEqual(f.lx, 17);
         try std.testing.expectEqual(f.y, 0);
         try std.testing.expectEqual(f.lines.items.len, 3);
         try std.testing.expectEqual(f.lines.items[1].len(), 0);
-        f.blank(12, 2);
+        try f.blank(12, 2);
         try std.testing.expectEqual(f.x, -4);
         try std.testing.expectEqual(f.lx, 1);
         try std.testing.expectEqual(f.y, 0);
         try std.testing.expectEqual(f.lines.items.len, 1);
+        try std.testing.expectEqual(f.blank(-4, 0), error.EmptyFieldError);
     }
     pub fn deinit(self: *Field) void {
         for (self.lines.items) |*l| {
@@ -243,14 +247,19 @@ pub const Field = struct {
     pub fn init(allocator: std.mem.Allocator) !*Field {
         var f = try allocator.create(Field);
         f.allocator = allocator;
+        f.x = undefined;
+        f.y = 0;
         f.lines = std.ArrayList(*Line).init(allocator);
+        var l = try f.lines.addOne();
+        l.* = try Line.init(allocator);
+        f.lx = 0;
         return f;
     }
     inline fn isIn(f: *Field, x: i64, y: i64) bool {
         return x >= f.x and y >= f.y and x < f.x + @intCast(i64, f.lx) and y < f.y + @intCast(i64, f.lines.items.len);
     }
     pub fn load(f: *Field, reader: anytype) !void {
-        if (f.lines.items.len > 0) return error.FIELD_NOT_EMPTY;
+        if (f.lines.items.len > 1 or f.lx > 0) return error.FIELD_NOT_EMPTY;
         var lastIsCR = false;
         var x: i64 = 0;
         var y: i64 = 0;
@@ -306,15 +315,6 @@ pub const Field = struct {
         try std.testing.expectEqual(f2.load(cr2), error.GOT_CR_WITHOUT_LF);
     }
     pub fn set(f: *Field, x: i64, y: i64, v: i64) !void {
-        if (f.lines.items.len == 0) {
-            f.x = x;
-            f.y = y;
-            var l = try f.lines.addOne();
-            l.* = try Line.init(f.allocator);
-            try l.*.set(x, v);
-            f.lx = 1;
-            return;
-        }
         if (v == ' ') return f.blank(x, y);
         if (y >= f.y) {
             if (y < f.y + @intCast(i64, f.lines.items.len)) { // the line exists
