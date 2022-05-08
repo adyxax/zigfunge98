@@ -1,0 +1,344 @@
+const std = @import("std");
+const defaultIO = @import("defaultIO.zig");
+const field = @import("field.zig");
+const stackStack = @import("stackStack.zig");
+
+const vector = std.meta.Vector(2, i64);
+
+const pointerErrorType = error{ EmptyFieldError, IOError, NotImplemented, OutOfMemory };
+
+const pointerReturn = struct {
+    code: ?i64 = null,
+};
+
+pub const IOFunctions = struct {
+    characterInput: fn () defaultIO.IOErrors!i64 = defaultIO.characterInput,
+    decimalInput: fn () defaultIO.IOErrors!i64 = defaultIO.decimalInput,
+    characterOutput: fn (i64) defaultIO.IOErrors!void = defaultIO.characterOutput,
+    decimalOutput: fn (i64) defaultIO.IOErrors!void = defaultIO.decimalOutput,
+};
+
+pub const Pointer = struct {
+    allocator: std.mem.Allocator,
+    field: *field.Field,
+    x: i64 = 0, // The position
+    y: i64 = 0,
+    dx: i64 = 1, // The traveling delta
+    dy: i64 = 0,
+    sox: i64 = 0, // The storage offset
+    soy: i64 = 0,
+    stringMode: bool = false, // string mode flags
+    lastCharWasSpace: bool = false,
+    ss: *stackStack.StackStack,
+    ioFunctions: IOFunctions,
+    argv: []const []const u8,
+    rand: *std.rand.Random,
+
+    pub fn deinit(self: *Pointer) void {
+        self.ss.deinit();
+        self.allocator.destroy(self);
+    }
+    fn eval(p: *Pointer, c: i64) pointerErrorType!?pointerReturn {
+        // Returns non nil if the pointer terminated, and a return code if
+        // the program should terminate completely
+        switch (c) {
+            '@' => return pointerReturn{},
+            'z' => {},
+            '#' => p.step(),
+            'j' => {
+                var n = p.ss.toss.pop();
+                var j: usize = 0;
+                if (n > 0) {
+                    while (j < n) : (j += 1) {
+                        p.step();
+                    }
+                } else {
+                    p.reverse();
+                    while (j < -n) : (j += 1) {
+                        p.step();
+                    }
+                    p.reverse();
+                }
+            },
+            'q' => return pointerReturn{ .code = p.ss.toss.pop() },
+            'k' => {
+                const x = p.x;
+                const y = p.y;
+                const n = p.ss.toss.pop();
+                var v = p.stepAndGet();
+                var jumpingMode = false;
+                while (jumpingMode or v == ' ' or v == ';') : (v = p.stepAndGet()) {
+                    if (v == ';') jumpingMode = !jumpingMode;
+                }
+                if (n > 0) {
+                    p.x = x;
+                    p.y = y;
+                    if (v != ' ' and v != ';') {
+                        if (v == 'q' or v == '@') return try p.eval(v);
+                        var i: usize = 0;
+                        while (i < n) : (i += 1) _ = try p.eval(v);
+                    }
+                }
+            },
+            '!' => {
+                if (p.ss.toss.pop() == 0) {
+                    try p.ss.toss.push(1);
+                } else {
+                    try p.ss.toss.push(0);
+                }
+            },
+            '`' => {
+                const v = p.ss.toss.popVector();
+                if (v[0] > v[1]) {
+                    try p.ss.toss.push(1);
+                } else {
+                    try p.ss.toss.push(0);
+                }
+            },
+            '_' => {
+                if (p.ss.toss.pop() == 0) {
+                    p.dx = 1;
+                } else {
+                    p.dx = -1;
+                }
+                p.dy = 0;
+            },
+            '|' => {
+                p.dx = 0;
+                if (p.ss.toss.pop() == 0) {
+                    p.dy = 1;
+                } else {
+                    p.dy = -1;
+                }
+            },
+            'w' => {
+                const v = p.ss.toss.popVector();
+                const dx = p.dx;
+                if (v[0] < v[1]) {
+                    p.dx = p.dy;
+                    p.dy = -dx;
+                } else if (v[0] > v[1]) {
+                    p.dx = -p.dy;
+                    p.dy = dx;
+                }
+            },
+            '+' => {
+                const v = p.ss.toss.popVector();
+                try p.ss.toss.push(v[0] + v[1]);
+            },
+            '*' => {
+                const v = p.ss.toss.popVector();
+                try p.ss.toss.push(v[0] * v[1]);
+            },
+            '-' => {
+                const v = p.ss.toss.popVector();
+                try p.ss.toss.push(v[0] - v[1]);
+            },
+            '/' => {
+                const v = p.ss.toss.popVector();
+                if (v[1] == 0) {
+                    try p.ss.toss.push(0);
+                } else {
+                    try p.ss.toss.push(@divFloor(v[0], v[1]));
+                }
+            },
+            '%' => {
+                const v = p.ss.toss.popVector();
+                if (v[1] == 0) {
+                    try p.ss.toss.push(0);
+                } else {
+                    try p.ss.toss.push(@mod(v[0], v[1]));
+                }
+            },
+            '"' => p.stringMode = true,
+            '\'' => try p.ss.toss.push(p.stepAndGet()),
+            's' => {
+                p.step();
+                try p.field.set(p.x, p.y, p.ss.toss.pop());
+            },
+            '$' => _ = p.ss.toss.pop(),
+            ':' => try p.ss.toss.duplicate(),
+            '\\' => try p.ss.toss.swap(),
+            'n' => p.ss.toss.clear(),
+            // TODO
+            '{' => return error.NotImplemented,
+            // TODO
+            '}' => return error.NotImplemented,
+            // TODO
+            'u' => return error.NotImplemented,
+            'g' => {
+                const v = p.ss.toss.popVector();
+                try p.ss.toss.push(p.field.get(v[0] + p.sox, v[1] + p.soy));
+            },
+            'p' => {
+                const v = p.ss.toss.popVector();
+                const n = p.ss.toss.pop();
+                try p.field.set(v[0] + p.sox, v[1] + p.soy, n);
+            },
+            '.' => try p.ioFunctions.decimalOutput(p.ss.toss.pop()),
+            ',' => try p.ioFunctions.characterOutput(p.ss.toss.pop()),
+            '&' => try p.ss.toss.push(try p.ioFunctions.decimalInput()),
+            '~' => try p.ss.toss.push(try p.ioFunctions.characterInput()),
+            // TODO
+            'y' => return error.NotImplemented,
+            '(' => {
+                const n = p.ss.toss.pop();
+                var v: i64 = 0;
+                var i: usize = 0;
+                while (i < n) : (i += 1) {
+                    v = v * 256 + p.ss.toss.pop();
+                }
+                p.reverse(); // no fingerprints supported for now
+            },
+            ')' => {
+                const n = p.ss.toss.pop();
+                var v: i64 = 0;
+                var i: usize = 0;
+                while (i < n) : (i += 1) {
+                    v = v * 256 + p.ss.toss.pop();
+                }
+                p.reverse(); // no fingerprints supported for now
+            },
+            'i' => return error.NotImplemented,
+            'o' => return error.NotImplemented,
+            '=' => return error.NotImplemented,
+            't' => return error.NotImplemented,
+            else => return error.NotImplemented,
+        }
+        return null;
+    }
+    fn exec(self: *Pointer) !?pointerReturn {
+        // Advances to the next instruction of the field and executes it
+        // Returns non nil if the pointer terminated, and a return code if
+        // the program should terminate completely
+        var result: ?pointerReturn = null;
+        var c = self.field.get(self.x, self.y);
+        if (self.stringMode) {
+            if (self.lastCharWasSpace) {
+                while (c == ' ') {
+                    c = self.stepAndGet();
+                }
+                self.lastCharWasSpace = false;
+            }
+            if (c == '"') {
+                self.stringMode = false;
+            } else {
+                if (c == ' ') self.lastCharWasSpace = true;
+                try self.ss.toss.push(c);
+            }
+        } else {
+            var jumpingMode = false;
+            while (jumpingMode or c == ' ' or c == ';') {
+                if (c == ';') jumpingMode = !jumpingMode;
+                c = self.stepAndGet();
+            }
+            result = try self.eval(c);
+        }
+        self.step();
+        return result;
+    }
+    pub fn init(allocator: std.mem.Allocator, f: *field.Field, ioFunctions: ?IOFunctions, argv: []const []const u8) !*Pointer {
+        var p = try allocator.create(Pointer);
+        errdefer allocator.destroy(p);
+        p.allocator = allocator;
+        p.field = f;
+        p.ss = try stackStack.StackStack.init(allocator);
+        p.ioFunctions = if (ioFunctions) |i| i else IOFunctions{};
+        p.argv = argv;
+        p.x = 0;
+        p.y = 0;
+        p.dx = 1;
+        p.dy = 0;
+        p.sox = 0;
+        p.soy = 0;
+        p.stringMode = false;
+        p.lastCharWasSpace = false;
+        // Initializing the random number generator
+        var seed: u64 = undefined;
+        try std.os.getrandom(std.mem.asBytes(&seed));
+        var prng = std.rand.DefaultPrng.init(seed);
+        p.rand = &prng.random();
+        return p;
+    }
+    inline fn redirect(p: *Pointer, c: i64) bool {
+        switch (c) {
+            '^' => {
+                p.dx = 0;
+                p.dy = -1;
+            },
+            '>' => {
+                p.dx = 1;
+                p.dy = 0;
+            },
+            'v' => {
+                p.dx = 0;
+                p.dy = 1;
+            },
+            '<' => {
+                p.dx = -1;
+                p.dy = 0;
+            },
+            '?' => {
+                const directions = []i8{ 0, -1, 1, 0, 0, 1, -1, 0 };
+                const r = 2 * p.rand.intRangeAtMost(u8, 0, 3);
+                p.dx = directions[r];
+                p.dy = directions[r + 1];
+            },
+            '[' => {
+                const dx = p.dx;
+                p.dx = p.dy;
+                p.dy = -dx;
+            },
+            ']' => {
+                const dx = p.dx;
+                p.dx = -p.dy;
+                p.dy = dx;
+            },
+            'r' => p.reverse(),
+            'x' => {
+                const v = p.ss.toss.popVector();
+                p.dx = v[0];
+                p.dy = v[1];
+            },
+            else => return false,
+        }
+        return true;
+    }
+    inline fn reverse(p: *Pointer) void {
+        p.dx = -p.dx;
+        p.dy = -p.dy;
+    }
+    inline fn step(self: *Pointer) void {
+        const v = self.field.step(self.x, self.y, self.dx, self.dy);
+        self.x = v.x;
+        self.y = v.y;
+    }
+    inline fn stepAndGet(self: *Pointer) i64 {
+        self.step();
+        return self.field.get(self.x, self.y);
+    }
+};
+
+test "all" {
+    std.testing.refAllDecls(@This());
+}
+test "minimal" {
+    const minimal = std.io.fixedBufferStream("@").reader();
+    var f = try field.Field.init(std.testing.allocator);
+    defer f.deinit();
+    try f.load(minimal);
+    const argv = [_][]const u8{"minimal"};
+    var p = try Pointer.init(std.testing.allocator, f, null, argv[0..]);
+    defer p.deinit();
+    try std.testing.expectEqual(p.exec(), pointerReturn{});
+}
+test "almost minimal" {
+    const minimal = std.io.fixedBufferStream(" @").reader();
+    var f = try field.Field.init(std.testing.allocator);
+    defer f.deinit();
+    try f.load(minimal);
+    const argv = [_][]const u8{"minimal"};
+    var p = try Pointer.init(std.testing.allocator, f, null, argv[0..]);
+    defer p.deinit();
+    try std.testing.expectEqual(p.exec(), pointerReturn{});
+}
