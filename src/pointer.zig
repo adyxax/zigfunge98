@@ -203,11 +203,19 @@ pub const Pointer = struct {
             'o' => return error.NotImplemented,
             '=' => return error.NotImplemented,
             't' => return error.NotImplemented,
-            else => return error.NotImplemented,
+            else => if (!p.redirect(c)) {
+                if (c >= '0' and c <= '9') {
+                    try p.ss.toss.push(c - '0');
+                } else if (c >= 'a' and c <= 'f') {
+                    try p.ss.toss.push(c - 'a' + 10);
+                } else {
+                    p.reverse();
+                }
+            },
         }
         return null;
     }
-    fn exec(self: *Pointer) !?pointerReturn {
+    pub fn exec(self: *Pointer) !?pointerReturn {
         // Advances to the next instruction of the field and executes it
         // Returns non nil if the pointer terminated, and a return code if
         // the program should terminate completely
@@ -279,7 +287,7 @@ pub const Pointer = struct {
                 p.dy = 0;
             },
             '?' => {
-                const directions = []i8{ 0, -1, 1, 0, 0, 1, -1, 0 };
+                const directions = [_]i8{ 0, -1, 1, 0, 0, 1, -1, 0 };
                 const r = 2 * p.rand.intRangeAtMost(u8, 0, 3);
                 p.dx = directions[r];
                 p.dy = directions[r + 1];

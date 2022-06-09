@@ -6,7 +6,7 @@ const Line = struct {
     data: std.ArrayList(i64),
     fn blank(l: *Line, x: i64) void {
         const lx = @intCast(i64, l.len());
-        if (x < l.x or x > l.x + lx) { // outside the field
+        if (x < l.x or x > l.x + lx - 1) { // outside the field
             return;
         } else if (x > l.x and x < l.x + lx - 1) { // just set the value
             l.data.items[@intCast(usize, x - l.x)] = ' ';

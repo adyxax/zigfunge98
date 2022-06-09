@@ -16,15 +16,13 @@ pub fn decimalInput() IOErrors!i64 {
 }
 
 pub fn characterOutput(v: i64) IOErrors!void {
-    // TODO
-    _ = v;
-    return error.NotImplemented;
+    std.debug.print("{c}", .{@intCast(u8, v)});
+    return;
 }
 
 pub fn decimalOutput(v: i64) IOErrors!void {
-    // TODO
-    _ = v;
-    return error.NotImplemented;
+    std.debug.print("{d}", .{v});
+    return;
 }
 
 test "all" {
