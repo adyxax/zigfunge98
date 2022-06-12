@@ -5,57 +5,32 @@ const pointer = @import("pointer.zig");
 const stackStack = @import("stackStack.zig");
 
 pub fn main() anyerror!void {
-    std.log.info("All your codebase are belong to us.", .{});
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer std.debug.assert(!gpa.deinit());
+    var args = try std.process.argsAlloc(gpa.allocator());
+    defer std.process.argsFree(gpa.allocator(), args);
+    if (args.len < 2) {
+        std.debug.print("Usage: {s} <b98_file_to_run>\n", .{args[0]});
+        std.os.exit(1);
+    }
+
+    var file = try std.fs.cwd().openFile("mycology/sanity.bf", .{});
+    defer file.close();
+
+    var i = try interpreter.Interpreter.init(gpa.allocator(), file.reader(), null, args);
+    defer i.deinit();
+
+    std.os.exit(@intCast(u8, try i.run()));
 }
 
 test "all" {
     std.testing.refAllDecls(@This());
 }
-test "minimal" {
-    const minimal = std.io.fixedBufferStream("@").reader();
-    var f = try field.Field.init(std.testing.allocator);
-    defer f.deinit();
-    try f.load(minimal);
-    const argv = [_][]const u8{"minimal"};
-    var p = try pointer.Pointer.init(std.testing.allocator, f, null, argv[0..]);
-    defer p.deinit();
-
-    var i = try interpreter.Interpreter.init(std.testing.allocator, f, p);
-    defer i.deinit();
-
-    var code = try i.run();
-    try std.testing.expectEqual(code, 0);
-}
-test "almost minimal" {
-    const minimal = std.io.fixedBufferStream(" @").reader();
-    var f = try field.Field.init(std.testing.allocator);
-    defer f.deinit();
-    try f.load(minimal);
-    const argv = [_][]const u8{"minimal"};
-    var p = try pointer.Pointer.init(std.testing.allocator, f, null, argv[0..]);
-    defer p.deinit();
-
-    var i = try interpreter.Interpreter.init(std.testing.allocator, f, p);
-    defer i.deinit();
-
-    var code = try i.run();
-    try std.testing.expectEqual(code, 0);
-}
 test "sanity" {
     var file = try std.fs.cwd().openFile("mycology/sanity.bf", .{});
     defer file.close();
-
-    var f = try field.Field.init(std.testing.allocator);
-    defer f.deinit();
-    try f.load(file.reader());
-
-    const argv = [_][]const u8{"sanity"};
-    var p = try pointer.Pointer.init(std.testing.allocator, f, null, argv[0..]);
-    defer p.deinit();
-
-    var i = try interpreter.Interpreter.init(std.testing.allocator, f, p);
+    const args = [_][]const u8{"sanity"};
+    var i = try interpreter.Interpreter.init(std.testing.allocator, file.reader(), null, args[0..]);
     defer i.deinit();
-
-    var code = try i.run();
-    try std.testing.expectEqual(code, 0);
+    try std.testing.expectEqual(try i.run(), 0);
 }

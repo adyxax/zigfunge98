@@ -244,8 +244,9 @@ pub const Field = struct {
         if (y >= f.y and y < f.y + @intCast(i64, f.lines.items.len)) return f.lines.items[@intCast(usize, y - @intCast(i64, f.y))].get(x);
         return ' ';
     }
-    pub fn init(allocator: std.mem.Allocator) !*Field {
+    fn init(allocator: std.mem.Allocator) !*Field {
         var f = try allocator.create(Field);
+        errdefer allocator.destroy(f);
         f.allocator = allocator;
         f.x = undefined;
         f.y = 0;
@@ -255,10 +256,16 @@ pub const Field = struct {
         f.lx = 0;
         return f;
     }
+    pub fn init_from_reader(allocator: std.mem.Allocator, reader: anytype) !*Field {
+        var f = try Field.init(allocator);
+        errdefer f.deinit();
+        try f.load(reader);
+        return f;
+    }
     inline fn isIn(f: *Field, x: i64, y: i64) bool {
         return x >= f.x and y >= f.y and x < f.x + @intCast(i64, f.lx) and y < f.y + @intCast(i64, f.lines.items.len);
     }
-    pub fn load(f: *Field, reader: anytype) !void {
+    fn load(f: *Field, reader: anytype) !void {
         if (f.lines.items.len > 1 or f.lx > 0) return error.FIELD_NOT_EMPTY;
         var lastIsCR = false;
         var x: i64 = 0;
@@ -420,9 +427,8 @@ test "all" {
 }
 test "hello" {
     const hello = std.io.fixedBufferStream("64+\"!dlroW ,olleH\">:#,_@\n").reader();
-    var f = try Field.init(std.testing.allocator);
+    var f = try Field.init_from_reader(std.testing.allocator, hello);
     defer f.deinit();
-    try f.load(hello);
     try std.testing.expectEqual(f.x, 0);
     try std.testing.expectEqual(f.y, 0);
     try std.testing.expectEqual(f.lx, 24);
@@ -431,9 +437,8 @@ test "hello" {
 }
 test "minimal" {
     const minimal = std.io.fixedBufferStream("@").reader();
-    var f = try Field.init(std.testing.allocator);
+    var f = try Field.init_from_reader(std.testing.allocator, minimal);
     defer f.deinit();
-    try f.load(minimal);
     try std.testing.expectEqual(f.x, 0);
     try std.testing.expectEqual(f.y, 0);
     try std.testing.expectEqual(f.lx, 1);

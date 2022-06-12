@@ -332,9 +332,8 @@ test "all" {
 }
 test "minimal" {
     const minimal = std.io.fixedBufferStream("@").reader();
-    var f = try field.Field.init(std.testing.allocator);
+    var f = try field.Field.init_from_reader(std.testing.allocator, minimal);
     defer f.deinit();
-    try f.load(minimal);
     const argv = [_][]const u8{"minimal"};
     var p = try Pointer.init(std.testing.allocator, f, null, argv[0..]);
     defer p.deinit();
@@ -342,9 +341,8 @@ test "minimal" {
 }
 test "almost minimal" {
     const minimal = std.io.fixedBufferStream(" @").reader();
-    var f = try field.Field.init(std.testing.allocator);
+    var f = try field.Field.init_from_reader(std.testing.allocator, minimal);
     defer f.deinit();
-    try f.load(minimal);
     const argv = [_][]const u8{"minimal"};
     var p = try Pointer.init(std.testing.allocator, f, null, argv[0..]);
     defer p.deinit();
