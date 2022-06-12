@@ -1,5 +1,6 @@
 const std = @import("std");
 const field = @import("field.zig");
+const io = @import("io.zig");
 const pointer = @import("pointer.zig");
 
 pub const Interpreter = struct {
@@ -12,7 +13,7 @@ pub const Interpreter = struct {
         self.field.deinit();
         self.allocator.destroy(self);
     }
-    pub fn init(allocator: std.mem.Allocator, reader: anytype, ioFunctions: ?pointer.IOFunctions, args: []const []const u8) !*Interpreter {
+    pub fn init(allocator: std.mem.Allocator, reader: anytype, ioFunctions: io.Functions, args: []const []const u8) !*Interpreter {
         var i = try allocator.create(Interpreter);
         errdefer allocator.destroy(i);
         i.allocator = allocator;

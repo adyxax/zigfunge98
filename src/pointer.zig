@@ -1,5 +1,5 @@
 const std = @import("std");
-const defaultIO = @import("defaultIO.zig");
+const io = @import("io.zig");
 const field = @import("field.zig");
 const stackStack = @import("stackStack.zig");
 
@@ -9,13 +9,6 @@ const pointerErrorType = error{ EmptyFieldError, IOError, NotImplemented, OutOfM
 
 const pointerReturn = struct {
     code: ?i64 = null,
-};
-
-pub const IOFunctions = struct {
-    characterInput: fn () defaultIO.IOErrors!i64 = defaultIO.characterInput,
-    decimalInput: fn () defaultIO.IOErrors!i64 = defaultIO.decimalInput,
-    characterOutput: fn (i64) defaultIO.IOErrors!void = defaultIO.characterOutput,
-    decimalOutput: fn (i64) defaultIO.IOErrors!void = defaultIO.decimalOutput,
 };
 
 pub const Pointer = struct {
@@ -30,7 +23,7 @@ pub const Pointer = struct {
     stringMode: bool = false, // string mode flags
     lastCharWasSpace: bool = false,
     ss: *stackStack.StackStack,
-    ioFunctions: IOFunctions,
+    ioFunctions: io.Functions,
     argv: []const []const u8,
     rand: *std.rand.Random,
 
@@ -245,13 +238,13 @@ pub const Pointer = struct {
         self.step();
         return result;
     }
-    pub fn init(allocator: std.mem.Allocator, f: *field.Field, ioFunctions: ?IOFunctions, argv: []const []const u8) !*Pointer {
+    pub fn init(allocator: std.mem.Allocator, f: *field.Field, ioFunctions: io.Functions, argv: []const []const u8) !*Pointer {
         var p = try allocator.create(Pointer);
         errdefer allocator.destroy(p);
         p.allocator = allocator;
         p.field = f;
         p.ss = try stackStack.StackStack.init(allocator);
-        p.ioFunctions = if (ioFunctions) |i| i else IOFunctions{};
+        p.ioFunctions = ioFunctions;
         p.argv = argv;
         p.x = 0;
         p.y = 0;
@@ -335,7 +328,7 @@ test "minimal" {
     var f = try field.Field.init_from_reader(std.testing.allocator, minimal);
     defer f.deinit();
     const argv = [_][]const u8{"minimal"};
-    var p = try Pointer.init(std.testing.allocator, f, null, argv[0..]);
+    var p = try Pointer.init(std.testing.allocator, f, io.defaultFunctions, argv[0..]);
     defer p.deinit();
     try std.testing.expectEqual(p.exec(), pointerReturn{});
 }
@@ -344,7 +337,7 @@ test "almost minimal" {
     var f = try field.Field.init_from_reader(std.testing.allocator, minimal);
     defer f.deinit();
     const argv = [_][]const u8{"minimal"};
-    var p = try Pointer.init(std.testing.allocator, f, null, argv[0..]);
+    var p = try Pointer.init(std.testing.allocator, f, io.defaultFunctions, argv[0..]);
     defer p.deinit();
     try std.testing.expectEqual(p.exec(), pointerReturn{});
 }
