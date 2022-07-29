@@ -23,7 +23,6 @@ pub const Pointer = struct {
     stringMode: bool = false, // string mode flags
     lastCharWasSpace: bool = false,
     ss: *stackStack.StackStack,
-    ioFunctions: io.Functions,
     argv: []const []const u8,
     rand: *std.rand.Random,
 
@@ -31,7 +30,7 @@ pub const Pointer = struct {
         self.ss.deinit();
         self.allocator.destroy(self);
     }
-    fn eval(p: *Pointer, c: i64) pointerErrorType!?pointerReturn {
+    fn eval(p: *Pointer, ioContext: anytype, c: i64) pointerErrorType!?pointerReturn {
         // Returns non nil if the pointer terminated, and a return code if
         // the program should terminate completely
         switch (c) {
@@ -67,9 +66,9 @@ pub const Pointer = struct {
                     p.x = x;
                     p.y = y;
                     if (v != ' ' and v != ';') {
-                        if (v == 'q' or v == '@') return try p.eval(v);
+                        if (v == 'q' or v == '@') return try p.eval(ioContext, v);
                         var i: usize = 0;
-                        while (i < n) : (i += 1) _ = try p.eval(v);
+                        while (i < n) : (i += 1) _ = try p.eval(ioContext, v);
                     }
                 }
             },
@@ -168,11 +167,25 @@ pub const Pointer = struct {
                 const n = p.ss.toss.pop();
                 try p.field.set(v[0] + p.sox, v[1] + p.soy, n);
             },
-            '.' => try p.ioFunctions.decimalOutput(p.ss.toss.pop()),
-            ',' => try p.ioFunctions.characterOutput(p.ss.toss.pop()),
-            '&' => try p.ss.toss.push(try p.ioFunctions.decimalInput()),
-            '~' => try p.ss.toss.push(try p.ioFunctions.characterInput()),
-            // TODO
+            '.' => ioContext.decimalOutput(p.ss.toss.pop()) catch {
+                p.reverse();
+                return null;
+            },
+            ',' => ioContext.characterOutput(p.ss.toss.pop()) catch p.reverse(),
+            '&' => {
+                const n = ioContext.decimalInput() catch {
+                    p.reverse();
+                    return null;
+                };
+                p.ss.toss.push(n) catch p.reverse();
+            },
+            '~' => {
+                const n = ioContext.characterInput() catch {
+                    p.reverse();
+                    return null;
+                };
+                p.ss.toss.push(n) catch p.reverse();
+            },
             'y' => return error.NotImplemented,
             '(' => {
                 const n = p.ss.toss.pop();
@@ -208,7 +221,7 @@ pub const Pointer = struct {
         }
         return null;
     }
-    pub fn exec(self: *Pointer) !?pointerReturn {
+    pub fn exec(self: *Pointer, ioContext: anytype) !?pointerReturn {
         // Advances to the next instruction of the field and executes it
         // Returns non nil if the pointer terminated, and a return code if
         // the program should terminate completely
@@ -233,18 +246,17 @@ pub const Pointer = struct {
                 if (c == ';') jumpingMode = !jumpingMode;
                 c = self.stepAndGet();
             }
-            result = try self.eval(c);
+            result = try self.eval(ioContext, c);
         }
         self.step();
         return result;
     }
-    pub fn init(allocator: std.mem.Allocator, f: *field.Field, ioFunctions: io.Functions, argv: []const []const u8) !*Pointer {
+    pub fn init(allocator: std.mem.Allocator, f: *field.Field, argv: []const []const u8) !*Pointer {
         var p = try allocator.create(Pointer);
         errdefer allocator.destroy(p);
         p.allocator = allocator;
         p.field = f;
         p.ss = try stackStack.StackStack.init(allocator);
-        p.ioFunctions = ioFunctions;
         p.argv = argv;
         p.x = 0;
         p.y = 0;
@@ -328,16 +340,16 @@ test "minimal" {
     var f = try field.Field.init_from_reader(std.testing.allocator, minimal);
     defer f.deinit();
     const argv = [_][]const u8{"minimal"};
-    var p = try Pointer.init(std.testing.allocator, f, io.defaultFunctions, argv[0..]);
+    var p = try Pointer.init(std.testing.allocator, f, argv[0..]);
     defer p.deinit();
-    try std.testing.expectEqual(p.exec(), pointerReturn{});
+    try std.testing.expectEqual(p.exec(io.context(std.io.getStdIn().reader(), std.io.getStdOut().writer())), pointerReturn{});
 }
 test "almost minimal" {
     const minimal = std.io.fixedBufferStream(" @").reader();
     var f = try field.Field.init_from_reader(std.testing.allocator, minimal);
     defer f.deinit();
     const argv = [_][]const u8{"minimal"};
-    var p = try Pointer.init(std.testing.allocator, f, io.defaultFunctions, argv[0..]);
+    var p = try Pointer.init(std.testing.allocator, f, argv[0..]);
     defer p.deinit();
-    try std.testing.expectEqual(p.exec(), pointerReturn{});
+    try std.testing.expectEqual(p.exec(io.context(std.io.getStdIn().reader(), std.io.getStdOut().writer())), pointerReturn{});
 }

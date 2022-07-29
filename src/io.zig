@@ -1,42 +1,37 @@
 const std = @import("std");
 
-pub const IOErrors = error{
-    IOError,
-    NotImplemented,
-};
-
-pub const Functions = struct {
-    characterInput: fn () IOErrors!i64,
-    decimalInput: fn () IOErrors!i64,
-    characterOutput: fn (i64) IOErrors!void,
-    decimalOutput: fn (i64) IOErrors!void,
-};
-
-pub const defaultFunctions = Functions{
-    .characterInput = characterInput,
-    .decimalInput = decimalInput,
-    .characterOutput = characterOutput,
-    .decimalOutput = decimalOutput,
-};
-
-fn characterInput() IOErrors!i64 {
-    // TODO
-    return error.NotImplemented;
+pub fn Context(readerType: anytype, writerType: anytype) type {
+    return struct {
+        reader: readerType,
+        writer: writerType,
+        pub fn characterInput(self: @This()) !i64 {
+            var buffer = [_]u8{0};
+            var n = try self.reader.read(buffer[0..]);
+            if (n == 1) {
+                return buffer[0];
+            }
+            return error.IOError;
+        }
+        pub fn decimalInput(self: @This()) !i64 {
+            _ = self;
+            return error.NotImplemented;
+        }
+        pub fn characterOutput(self: @This(), v: i64) !void {
+            try self.writer.print("{c}", .{@intCast(u8, v)});
+            return;
+        }
+        pub fn decimalOutput(self: @This(), v: i64) !void {
+            try self.writer.print("{d}", .{v});
+            return;
+        }
+    };
 }
 
-fn decimalInput() IOErrors!i64 {
-    // TODO
-    return error.NotImplemented;
-}
-
-fn characterOutput(v: i64) IOErrors!void {
-    std.debug.print("{c}", .{@intCast(u8, v)});
-    return;
-}
-
-fn decimalOutput(v: i64) IOErrors!void {
-    std.debug.print("{d}", .{v});
-    return;
+pub fn context(reader: anytype, writer: anytype) Context(@TypeOf(reader), @TypeOf(writer)) {
+    return .{
+        .reader = reader,
+        .writer = writer,
+    };
 }
 
 test "all" {
