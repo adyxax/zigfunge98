@@ -27,8 +27,13 @@ test "all" {
 test "sanity" {
     var file = try std.fs.cwd().openFile("mycology/sanity.bf", .{});
     defer file.close();
+    var stdin = std.io.fixedBufferStream("");
+    var stdout = std.ArrayList(u8).init(std.testing.allocator);
+    defer stdout.deinit();
+    const expected = "0123456789";
     const args = [_][]const u8{"sanity"};
     var i = try interpreter.Interpreter.init(std.testing.allocator, file.reader(), args[0..]);
     defer i.deinit();
-    try std.testing.expectEqual(try i.run(io.context(std.io.getStdIn().reader(), std.io.getStdOut().writer())), 0);
+    try std.testing.expectEqual(try i.run(io.context(stdin.reader(), stdout.writer())), 0);
+    try std.testing.expectEqual(std.mem.eql(u8, stdout.items, expected), true);
 }
