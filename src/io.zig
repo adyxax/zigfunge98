@@ -5,18 +5,7 @@ pub fn Context(readerType: anytype, writerType: anytype) type {
         reader: readerType,
         writer: writerType,
         lastChar: ?i64 = null,
-        allocator: std.mem.Allocator,
         const Self = @This();
-        pub fn deinit(self: *Self) void {
-            self.allocator.destroy(self);
-        }
-        pub fn init(allocator: std.mem.Allocator, reader: readerType, writer: writerType) !*Self {
-            var c = try allocator.create(Self);
-            c.allocator = allocator;
-            c.reader = reader;
-            c.writer = writer;
-            return c;
-        }
         pub fn characterInput(self: *Self) !i64 {
             if (self.lastChar) |c| {
                 self.lastChar = null;
@@ -33,8 +22,7 @@ pub fn Context(readerType: anytype, writerType: anytype) type {
             var stdin = std.io.fixedBufferStream("ab0");
             var stdout = std.ArrayList(u8).init(std.testing.allocator);
             defer stdout.deinit();
-            var ioContext = try context(std.testing.allocator, stdin, stdout);
-            defer ioContext.deinit();
+            var ioContext = context(stdin, stdout);
             try std.testing.expectEqual(try ioContext.characterInput(), 'a');
             try std.testing.expectEqual(try ioContext.characterInput(), 'b');
             try std.testing.expectEqual(try ioContext.characterInput(), '0');
@@ -64,8 +52,7 @@ pub fn Context(readerType: anytype, writerType: anytype) type {
             var stdin = std.io.fixedBufferStream("1 234abc5d6ef");
             var stdout = std.ArrayList(u8).init(std.testing.allocator);
             defer stdout.deinit();
-            var ioContext = try context(std.testing.allocator, stdin, stdout);
-            defer ioContext.deinit();
+            var ioContext = context(stdin, stdout);
             try std.testing.expectEqual(try ioContext.decimalInput(), 1);
             try std.testing.expectEqual(try ioContext.decimalInput(), 234);
             try std.testing.expectEqual(try ioContext.decimalInput(), 5);
@@ -83,8 +70,11 @@ pub fn Context(readerType: anytype, writerType: anytype) type {
     };
 }
 
-pub fn context(allocator: std.mem.Allocator, reader: anytype, writer: anytype) !*Context(@TypeOf(reader), @TypeOf(writer)) {
-    return Context(@TypeOf(reader), @TypeOf(writer)).init(allocator, reader, writer);
+pub fn context(reader: anytype, writer: anytype) Context(@TypeOf(reader), @TypeOf(writer)) {
+    return .{
+        .reader = reader,
+        .writer = writer,
+    };
 }
 
 test "all" {

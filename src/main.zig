@@ -18,9 +18,8 @@ pub fn main() anyerror!void {
     var i = try interpreter.Interpreter.init(gpa.allocator(), file.reader(), args);
     defer i.deinit();
 
-    var ioContext = try io.context(gpa.allocator(), std.io.getStdIn().reader(), std.io.getStdOut().writer());
-    defer ioContext.deinit();
-    std.os.exit(@intCast(u8, try i.run(ioContext)));
+    var ioContext = io.context(std.io.getStdIn().reader(), std.io.getStdOut().writer());
+    std.os.exit(@intCast(u8, try i.run(&ioContext)));
 }
 
 test "all" {
@@ -36,8 +35,7 @@ test "sanity" {
     const args = [_][]const u8{"sanity"};
     var i = try interpreter.Interpreter.init(std.testing.allocator, file.reader(), args[0..]);
     defer i.deinit();
-    var ioContext = try io.context(std.testing.allocator, stdin.reader(), stdout.writer());
-    defer ioContext.deinit();
-    try std.testing.expectEqual(try i.run(ioContext), 0);
+    var ioContext = io.context(stdin.reader(), stdout.writer());
+    try std.testing.expectEqual(try i.run(&ioContext), 0);
     try std.testing.expectEqual(std.mem.eql(u8, stdout.items, expected), true);
 }
