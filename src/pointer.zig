@@ -342,7 +342,9 @@ test "minimal" {
     const argv = [_][]const u8{"minimal"};
     var p = try Pointer.init(std.testing.allocator, f, argv[0..]);
     defer p.deinit();
-    try std.testing.expectEqual(p.exec(io.context(std.io.getStdIn().reader(), std.io.getStdOut().writer())), pointerReturn{});
+    var ioContext = try io.context(std.testing.allocator, std.io.getStdIn().reader(), std.io.getStdOut().writer());
+    defer ioContext.deinit();
+    try std.testing.expectEqual(p.exec(ioContext), pointerReturn{});
 }
 test "almost minimal" {
     const minimal = std.io.fixedBufferStream(" @").reader();
@@ -351,5 +353,7 @@ test "almost minimal" {
     const argv = [_][]const u8{"minimal"};
     var p = try Pointer.init(std.testing.allocator, f, argv[0..]);
     defer p.deinit();
-    try std.testing.expectEqual(p.exec(io.context(std.io.getStdIn().reader(), std.io.getStdOut().writer())), pointerReturn{});
+    var ioContext = try io.context(std.testing.allocator, std.io.getStdIn().reader(), std.io.getStdOut().writer());
+    defer ioContext.deinit();
+    try std.testing.expectEqual(p.exec(ioContext), pointerReturn{});
 }
