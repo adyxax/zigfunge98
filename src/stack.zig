@@ -74,8 +74,55 @@ pub const Stack = struct {
         try s.swap();
         try std.testing.expectEqual(s.popVector(), @as(vector, [2]i64{ 2, 0 }));
     }
-    //pub fn transfert(toss: *Stack, soss: *Stack, n: u64) !void {
-    //}
+    pub fn transfert(toss: *Stack, soss: *Stack, n: u64) !void {
+        // Implements a value transfert between two stacks, intended for use with the '{'
+        // (aka begin) and '}' (aka end) stackstack commands
+        try toss.data.ensureUnusedCapacity(n);
+        var i: usize = n;
+        while (i >= std.math.min(soss.data.items.len, n) + 1) : (i -= 1) {
+            toss.data.appendAssumeCapacity(0);
+        }
+        while (i >= 1) : (i -= 1) {
+            toss.data.appendAssumeCapacity(soss.data.items[soss.data.items.len - i]);
+        }
+        if (soss.data.items.len >= n) {
+            soss.data.items.len -= n;
+        } else {
+            soss.data.items.len = 0;
+        }
+    }
+    test "transfert" {
+        var empty = try Stack.init(std.testing.allocator);
+        defer empty.deinit();
+        var empty2 = try Stack.init(std.testing.allocator);
+        defer empty2.deinit();
+        try empty.transfert(empty2, 4);
+        const emptyResult = [_]i64{ 0, 0, 0, 0 };
+        try std.testing.expectEqualSlices(i64, empty.data.items, emptyResult[0..]);
+        const empty2Result = [_]i64{};
+        try std.testing.expectEqualSlices(i64, empty2.data.items, empty2Result[0..]);
+        try empty.transfert(empty2, 32);
+        try std.testing.expectEqual(empty.data.items.len, 36);
+        empty.clear();
+        var some = try Stack.init(std.testing.allocator);
+        defer some.deinit();
+        try some.push(2);
+        try empty.transfert(some, 3);
+        const emptyResult2 = [_]i64{ 0, 0, 2 };
+        try std.testing.expectEqualSlices(i64, empty.data.items, emptyResult2[0..]);
+        try std.testing.expectEqualSlices(i64, some.data.items, empty2Result[0..]);
+        empty.clear();
+        var full = try Stack.init(std.testing.allocator);
+        defer full.deinit();
+        try full.push(1);
+        try full.push(2);
+        try full.push(3);
+        try empty.transfert(full, 2);
+        const emptyResult3 = [_]i64{ 2, 3 };
+        try std.testing.expectEqualSlices(i64, empty.data.items, emptyResult3[0..]);
+        const fullResult = [_]i64{1};
+        try std.testing.expectEqualSlices(i64, full.data.items, fullResult[0..]);
+    }
 };
 
 test "all" {
