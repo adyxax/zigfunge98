@@ -160,8 +160,15 @@ pub const Pointer = struct {
                 p.sox = p.x + p.dx;
                 p.soy = p.y + p.dy;
             },
-            // TODO
-            '}' => return error.NotImplemented,
+            '}' => {
+                const v = p.ss.end() catch null;
+                if (v) |so| {
+                    p.sox = so[0];
+                    p.soy = so[1];
+                } else {
+                    p.reverse();
+                }
+            },
             // TODO
             'u' => return error.NotImplemented,
             'g' => {

@@ -123,6 +123,30 @@ pub const Stack = struct {
         const fullResult = [_]i64{1};
         try std.testing.expectEqualSlices(i64, full.data.items, fullResult[0..]);
     }
+    pub fn discard(self: *Stack, n: u64) void {
+        // Implements a discard mechanism intended for use with the '}'(aka end) stackstack command
+        if (self.data.items.len > n) {
+            self.data.items.len -= n;
+        } else {
+            self.data.items.len = 0;
+        }
+    }
+    test "discard" {
+        var empty = try Stack.init(std.testing.allocator);
+        defer empty.deinit();
+        empty.discard(1);
+        const emptyResult = [_]i64{};
+        try std.testing.expectEqualSlices(i64, empty.data.items, emptyResult[0..]);
+        try empty.push(2);
+        empty.discard(3);
+        try std.testing.expectEqualSlices(i64, empty.data.items, emptyResult[0..]);
+        try empty.push(4);
+        try empty.push(5);
+        try empty.push(6);
+        empty.discard(1);
+        const emptyResult2 = [_]i64{ 4, 5 };
+        try std.testing.expectEqualSlices(i64, empty.data.items, emptyResult2[0..]);
+    }
 };
 
 test "all" {
