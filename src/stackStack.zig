@@ -22,6 +22,62 @@ pub const StackStack = struct {
         ss.toss = try stack.Stack.init(allocator);
         return ss;
     }
+    pub fn begin(self: *StackStack, v: [2]i64) !void {
+        var soss = self.toss;
+        try self.data.append(soss);
+        var n = soss.pop();
+        self.toss = try stack.Stack.init(self.allocator);
+        if (n > 0) {
+            try self.toss.transfert(soss, @intCast(u64, n));
+        } else if (n < 0) {
+            var i: usize = 0;
+            while (i < -n) : (i += 1) {
+                try soss.push(0);
+            }
+        }
+        try soss.pushVector(v);
+    }
+    test "begin" {
+        var empty = try StackStack.init(std.testing.allocator);
+        defer empty.deinit();
+        try empty.begin([2]i64{ 1, 2 });
+        const tossResult = [_]i64{};
+        const sossResult = [_]i64{ 1, 2 };
+        try std.testing.expectEqualSlices(i64, empty.toss.data.items, tossResult[0..]);
+        try std.testing.expectEqualSlices(i64, empty.data.items[0].data.items, sossResult[0..]);
+        try empty.toss.push(5);
+        try empty.toss.push(6);
+        try empty.toss.push(4);
+        try empty.begin([2]i64{ 7, 8 });
+        const tossResult2 = [_]i64{ 0, 0, 5, 6 };
+        const sossResult2 = [_]i64{ 7, 8 };
+        try std.testing.expectEqualSlices(i64, empty.toss.data.items, tossResult2[0..]);
+        try std.testing.expectEqualSlices(i64, empty.data.items[0].data.items, sossResult[0..]);
+        try std.testing.expectEqualSlices(i64, empty.data.items[1].data.items, sossResult2[0..]);
+        try empty.toss.push(9);
+        try empty.toss.push(10);
+        try empty.toss.push(11);
+        try empty.toss.push(12);
+        try empty.toss.push(2);
+        try empty.begin([2]i64{ 13, 14 });
+        const tossResult3 = [_]i64{ 11, 12 };
+        const sossResult3 = [_]i64{ 0, 0, 5, 6, 9, 10, 13, 14 };
+        try std.testing.expectEqualSlices(i64, empty.toss.data.items, tossResult3[0..]);
+        try std.testing.expectEqualSlices(i64, empty.data.items[0].data.items, sossResult[0..]);
+        try std.testing.expectEqualSlices(i64, empty.data.items[1].data.items, sossResult2[0..]);
+        try std.testing.expectEqualSlices(i64, empty.data.items[2].data.items, sossResult3[0..]);
+        try empty.toss.push(15);
+        try empty.toss.push(16);
+        try empty.toss.push(-2);
+        try empty.begin([2]i64{ 17, 18 });
+        const tossResult4 = [_]i64{};
+        const sossResult4 = [_]i64{ 11, 12, 15, 16, 0, 0, 17, 18 };
+        try std.testing.expectEqualSlices(i64, empty.toss.data.items, tossResult4[0..]);
+        try std.testing.expectEqualSlices(i64, empty.data.items[0].data.items, sossResult[0..]);
+        try std.testing.expectEqualSlices(i64, empty.data.items[1].data.items, sossResult2[0..]);
+        try std.testing.expectEqualSlices(i64, empty.data.items[2].data.items, sossResult3[0..]);
+        try std.testing.expectEqualSlices(i64, empty.data.items[3].data.items, sossResult4[0..]);
+    }
     pub inline fn toss(self: *StackStack) *stack.Stack {
         return self.toss;
     }

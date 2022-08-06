@@ -152,8 +152,14 @@ pub const Pointer = struct {
             ':' => try p.ss.toss.duplicate(),
             '\\' => try p.ss.toss.swap(),
             'n' => p.ss.toss.clear(),
-            // TODO
-            '{' => return error.NotImplemented,
+            '{' => {
+                p.ss.begin([2]i64{ p.sox, p.soy }) catch {
+                    p.reverse();
+                    return null;
+                };
+                p.sox = p.x + p.dx;
+                p.soy = p.y + p.dy;
+            },
             // TODO
             '}' => return error.NotImplemented,
             // TODO
