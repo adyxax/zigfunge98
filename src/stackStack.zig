@@ -6,6 +6,7 @@ pub const StackStack = struct {
     data: std.ArrayList(*stack.Stack),
     toss: *stack.Stack,
     pub fn deinit(self: *StackStack) void {
+        self.toss.deinit();
         for (self.data.items) |s| {
             s.deinit();
         }
@@ -18,9 +19,7 @@ pub const StackStack = struct {
         ss.allocator = allocator;
         ss.data = std.ArrayList(*stack.Stack).init(allocator);
         errdefer ss.data.deinit();
-        var s = try ss.data.addOne();
-        s.* = try stack.Stack.init(allocator);
-        ss.toss = s.*;
+        ss.toss = try stack.Stack.init(allocator);
         return ss;
     }
     pub inline fn toss(self: *StackStack) *stack.Stack {
