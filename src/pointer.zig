@@ -169,8 +169,11 @@ pub const Pointer = struct {
                     p.reverse();
                 }
             },
-            // TODO
-            'u' => return error.NotImplemented,
+            'u' => {
+                if (p.ss.under() catch true) {
+                    p.reverse();
+                }
+            },
             'g' => {
                 const v = p.ss.toss.popVector();
                 try p.ss.toss.push(p.field.get(v[0] + p.sox, v[1] + p.soy));
