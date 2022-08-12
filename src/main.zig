@@ -15,7 +15,8 @@ pub fn main() anyerror!void {
     var file = try std.fs.cwd().openFile("mycology/sanity.bf", .{});
     defer file.close();
 
-    var i = try interpreter.Interpreter.init(gpa.allocator(), file.reader(), args);
+    const env: []const [*:0]const u8 = std.os.environ;
+    var i = try interpreter.Interpreter.init(gpa.allocator(), file.reader(), args, env[0..]);
     defer i.deinit();
 
     var ioContext = io.context(std.io.getStdIn().reader(), std.io.getStdOut().writer());
@@ -33,7 +34,8 @@ test "sanity" {
     defer stdout.deinit();
     const expected = "0123456789";
     const args = [_][]const u8{"sanity"};
-    var i = try interpreter.Interpreter.init(std.testing.allocator, file.reader(), args[0..]);
+    const env = [_][*:0]const u8{"ENV=TEST"};
+    var i = try interpreter.Interpreter.init(std.testing.allocator, file.reader(), args[0..], env[0..]);
     defer i.deinit();
     var ioContext = io.context(stdin.reader(), stdout.writer());
     try std.testing.expectEqual(try i.run(&ioContext), 0);

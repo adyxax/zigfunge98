@@ -13,13 +13,13 @@ pub const Interpreter = struct {
         self.field.deinit();
         self.allocator.destroy(self);
     }
-    pub fn init(allocator: std.mem.Allocator, fileReader: anytype, args: []const []const u8) !*Interpreter {
+    pub fn init(allocator: std.mem.Allocator, fileReader: anytype, args: []const []const u8, env: []const [*:0]const u8) !*Interpreter {
         var i = try allocator.create(Interpreter);
         errdefer allocator.destroy(i);
         i.allocator = allocator;
         i.field = try field.Field.init_from_reader(allocator, fileReader);
         errdefer i.field.deinit();
-        i.pointer = try pointer.Pointer.init(std.testing.allocator, i.field, args);
+        i.pointer = try pointer.Pointer.init(std.testing.allocator, i.field, args, env);
         errdefer i.pointer.deinit();
         return i;
     }

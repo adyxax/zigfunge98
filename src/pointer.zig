@@ -23,6 +23,7 @@ pub const Pointer = struct {
     stringMode: bool = false, // string mode flags
     lastCharWasSpace: bool = false,
     ss: *stackStack.StackStack,
+    env: []const [*:0]const u8,
     argv: []const []const u8,
     rand: *std.rand.Random,
 
@@ -267,13 +268,14 @@ pub const Pointer = struct {
         self.step();
         return result;
     }
-    pub fn init(allocator: std.mem.Allocator, f: *field.Field, argv: []const []const u8) !*Pointer {
+    pub fn init(allocator: std.mem.Allocator, f: *field.Field, argv: []const []const u8, env: []const [*:0]const u8) !*Pointer {
         var p = try allocator.create(Pointer);
         errdefer allocator.destroy(p);
         p.allocator = allocator;
         p.field = f;
         p.ss = try stackStack.StackStack.init(allocator);
         p.argv = argv;
+        p.env = env;
         p.x = 0;
         p.y = 0;
         p.dx = 1;
@@ -356,7 +358,8 @@ test "minimal" {
     var f = try field.Field.init_from_reader(std.testing.allocator, minimal);
     defer f.deinit();
     const argv = [_][]const u8{"minimal"};
-    var p = try Pointer.init(std.testing.allocator, f, argv[0..]);
+    const env = [_][*:0]const u8{"ENV=TEST"};
+    var p = try Pointer.init(std.testing.allocator, f, argv[0..], env[0..]);
     defer p.deinit();
     var ioContext = io.context(std.io.getStdIn().reader(), std.io.getStdOut().writer());
     try std.testing.expectEqual(p.exec(&ioContext), pointerReturn{});
@@ -366,7 +369,8 @@ test "almost minimal" {
     var f = try field.Field.init_from_reader(std.testing.allocator, minimal);
     defer f.deinit();
     const argv = [_][]const u8{"minimal"};
-    var p = try Pointer.init(std.testing.allocator, f, argv[0..]);
+    const env = [_][*:0]const u8{"ENV=TEST"};
+    var p = try Pointer.init(std.testing.allocator, f, argv[0..], env[0..]);
     defer p.deinit();
     var ioContext = io.context(std.io.getStdIn().reader(), std.io.getStdOut().writer());
     try std.testing.expectEqual(p.exec(&ioContext), pointerReturn{});
