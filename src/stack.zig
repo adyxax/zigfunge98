@@ -147,6 +147,16 @@ pub const Stack = struct {
         const emptyResult2 = [_]i64{ 4, 5 };
         try std.testing.expectEqualSlices(i64, empty.data.items, emptyResult2[0..]);
     }
+    pub fn yCommandPick(self: *Stack, n: usize, h: usize) !void {
+        if (n > self.data.items.len) {
+            self.data.items.len = 1;
+            self.data.items[0] = 0;
+        } else {
+            const v = self.data.items[self.data.items.len - n];
+            self.data.items.len = h;
+            try self.push(v);
+        }
+    }
 };
 
 test "all" {

@@ -244,6 +244,9 @@ pub const Field = struct {
         if (y >= f.y and y < f.y + @intCast(i64, f.lines.items.len)) return f.lines.items[@intCast(usize, y - @intCast(i64, f.y))].get(x);
         return ' ';
     }
+    pub fn getSize(f: Field) [4]i64 {
+        return [4]i64{ f.x, f.y, @intCast(i64, f.lx), @intCast(i64, f.lines.items.len) };
+    }
     fn init(allocator: std.mem.Allocator) !*Field {
         var f = try allocator.create(Field);
         errdefer allocator.destroy(f);
