@@ -203,7 +203,86 @@ pub const Pointer = struct {
                 };
                 p.ss.toss.push(n) catch p.reverse();
             },
-            'y' => return error.NotImplemented,
+            'y' => {
+                const n = p.ss.toss.pop();
+                const fieldSize = p.field.getSize();
+                const height = p.ss.toss.data.items.len;
+                // 20
+                var i: usize = 0;
+                while (i < p.env.len) : (i += 1) {
+                    var j: usize = 0;
+                    // env is a null terminated string, calculate its len
+                    while (p.env[i][j] != 0) : (j += 1) {}
+                    if (j == 0) {
+                        break;
+                    }
+                    try p.ss.toss.push(0);
+                    j -= 1;
+                    while (true) : (j -= 1) {
+                        try p.ss.toss.push(p.env[i][j]);
+                        if (j == 0) break;
+                    }
+                }
+                // 19
+                try p.ss.toss.pushVector([2]i64{ 0, 0 });
+                i = 0;
+                while (i < p.argv.len) : (i += 1) {
+                    try p.ss.toss.push(0);
+                    var j: usize = p.argv[i].len - 1;
+                    while (true) : (j -= 1) {
+                        try p.ss.toss.push(p.argv[i][j]);
+                        if (j == 0) break;
+                    }
+                }
+                // 18
+                i = 0;
+                while (i < p.ss.data.items.len) : (i += 1) {
+                    try p.ss.toss.push(@intCast(i64, p.ss.data.items[i].data.items.len));
+                }
+                try p.ss.toss.push(@intCast(i64, height));
+                // 17
+                try p.ss.toss.push(@intCast(i64, p.ss.data.items.len) + 1);
+                // 16
+                const now = std.time.epoch.EpochSeconds{ .secs = @intCast(u64, std.time.timestamp()) };
+                const epochDay = now.getEpochDay();
+                const daySeconds = now.getDaySeconds();
+                try p.ss.toss.push(@intCast(i64, daySeconds.getHoursIntoDay()) * 256 * 256 + @intCast(i64, daySeconds.getMinutesIntoHour()) * 256 + @intCast(i64, daySeconds.getSecondsIntoMinute()));
+                // 15
+                const yearAndDay = epochDay.calculateYearDay();
+                const monthAndDay = yearAndDay.calculateMonthDay();
+                try p.ss.toss.push(@intCast(i64, yearAndDay.year - 1900) * 256 * 256 + @intCast(i64, monthAndDay.month.numeric()) * 256 + @intCast(i64, monthAndDay.day_index));
+                // 14
+                try p.ss.toss.pushVector([2]i64{ fieldSize[2] - 1, fieldSize[3] - 1 });
+                // 13
+                try p.ss.toss.pushVector([2]i64{ fieldSize[0], fieldSize[1] });
+                // 12
+                try p.ss.toss.pushVector([2]i64{ p.sox, p.soy });
+                // 11
+                try p.ss.toss.pushVector([2]i64{ p.dx, p.dy });
+                // 10
+                try p.ss.toss.pushVector([2]i64{ p.x, p.y });
+                // 9
+                try p.ss.toss.push(0);
+                // 8
+                try p.ss.toss.push(0); // TODO update when implementing =
+                // 7
+                try p.ss.toss.push(2);
+                // 6
+                try p.ss.toss.push('/');
+                // 5
+                try p.ss.toss.push(0); // TODO update when implementing =
+                // 4
+                try p.ss.toss.push(1);
+                // 3
+                try p.ss.toss.push(1048578);
+                // 2
+                try p.ss.toss.push(@sizeOf(i64));
+                // 1
+                try p.ss.toss.push(0b00000); // TODO update when implementing t, i, o and =
+                if (n > 0) {
+                    try p.ss.toss.yCommandPick(@intCast(usize, n), height);
+                }
+            },
             '(' => {
                 const n = p.ss.toss.pop();
                 var v: i64 = 0;
