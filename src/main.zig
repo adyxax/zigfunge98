@@ -12,7 +12,7 @@ pub fn main() anyerror!void {
         std.os.exit(1);
     }
 
-    var file = try std.fs.cwd().openFile("mycology/sanity.bf", .{});
+    var file = try std.fs.cwd().openFile(args[1], .{});
     defer file.close();
 
     const env: []const [*:0]const u8 = std.os.environ;

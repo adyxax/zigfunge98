@@ -12,9 +12,8 @@ pub const Stack = struct {
         self.allocator.destroy(self);
     }
     pub fn duplicate(self: *Stack) !void {
-        if (self.data.items.len > 0) {
-            try self.push(self.data.items[self.data.items.len - 1]);
-        }
+        const v = self.pop();
+        try self.pushVector([2]i64{ v, v });
     }
     test "duplicate" {
         var s = try Stack.init(std.testing.allocator);

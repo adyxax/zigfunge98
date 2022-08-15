@@ -287,7 +287,7 @@ pub const Field = struct {
                     }
                 }
                 switch (buffer[i]) {
-                    12 => x += 1,
+                    12 => continue,
                     '\r' => {
                         x = 0;
                         y += 1;
