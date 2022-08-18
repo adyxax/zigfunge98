@@ -26,6 +26,7 @@ pub const Pointer = struct {
     env: []const [*:0]const u8,
     argv: []const []const u8,
     rand: *std.rand.Random,
+    timestamp: fn () i64,
 
     pub fn deinit(self: *Pointer) void {
         self.ss.deinit();
@@ -243,7 +244,7 @@ pub const Pointer = struct {
                 // 17
                 try p.ss.toss.push(@intCast(i64, p.ss.data.items.len) + 1);
                 // 16
-                const now = std.time.epoch.EpochSeconds{ .secs = @intCast(u64, std.time.timestamp()) };
+                const now = std.time.epoch.EpochSeconds{ .secs = @intCast(u64, p.timestamp()) };
                 const epochDay = now.getEpochDay();
                 const daySeconds = now.getDaySeconds();
                 try p.ss.toss.push(@intCast(i64, daySeconds.getHoursIntoDay()) * 256 * 256 + @intCast(i64, daySeconds.getMinutesIntoHour()) * 256 + @intCast(i64, daySeconds.getSecondsIntoMinute()));
@@ -347,7 +348,7 @@ pub const Pointer = struct {
         self.step();
         return result;
     }
-    pub fn init(allocator: std.mem.Allocator, f: *field.Field, argv: []const []const u8, env: []const [*:0]const u8) !*Pointer {
+    pub fn init(allocator: std.mem.Allocator, f: *field.Field, timestamp: fn () i64, argv: []const []const u8, env: []const [*:0]const u8) !*Pointer {
         var p = try allocator.create(Pointer);
         errdefer allocator.destroy(p);
         p.allocator = allocator;
@@ -368,6 +369,7 @@ pub const Pointer = struct {
         try std.os.getrandom(std.mem.asBytes(&seed));
         var prng = std.rand.DefaultPrng.init(seed);
         p.rand = &prng.random();
+        p.timestamp = timestamp;
         return p;
     }
     inline fn redirect(p: *Pointer, c: i64) bool {
@@ -429,6 +431,9 @@ pub const Pointer = struct {
     }
 };
 
+fn testTimestamp() i64 {
+    return 1660681247;
+}
 test "all" {
     std.testing.refAllDecls(@This());
 }
@@ -438,7 +443,7 @@ test "minimal" {
     defer f.deinit();
     const argv = [_][]const u8{"minimal"};
     const env = [_][*:0]const u8{"ENV=TEST"};
-    var p = try Pointer.init(std.testing.allocator, f, argv[0..], env[0..]);
+    var p = try Pointer.init(std.testing.allocator, f, testTimestamp, argv[0..], env[0..]);
     defer p.deinit();
     var ioContext = io.context(std.io.getStdIn().reader(), std.io.getStdOut().writer());
     try std.testing.expectEqual(p.exec(&ioContext), pointerReturn{});
@@ -449,7 +454,7 @@ test "almost minimal" {
     defer f.deinit();
     const argv = [_][]const u8{"minimal"};
     const env = [_][*:0]const u8{"ENV=TEST"};
-    var p = try Pointer.init(std.testing.allocator, f, argv[0..], env[0..]);
+    var p = try Pointer.init(std.testing.allocator, f, testTimestamp, argv[0..], env[0..]);
     defer p.deinit();
     var ioContext = io.context(std.io.getStdIn().reader(), std.io.getStdOut().writer());
     try std.testing.expectEqual(p.exec(&ioContext), pointerReturn{});

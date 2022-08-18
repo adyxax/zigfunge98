@@ -16,13 +16,16 @@ pub fn main() anyerror!void {
     defer file.close();
 
     const env: []const [*:0]const u8 = std.os.environ;
-    var i = try interpreter.Interpreter.init(gpa.allocator(), file.reader(), args, env[0..]);
+    var i = try interpreter.Interpreter.init(gpa.allocator(), file.reader(), std.time.timestamp, args, env[0..]);
     defer i.deinit();
 
     var ioContext = io.context(std.io.getStdIn().reader(), std.io.getStdOut().writer());
     std.os.exit(@intCast(u8, try i.run(&ioContext)));
 }
 
+fn testTimestamp() i64 {
+    return 1660681247;
+}
 test "all" {
     std.testing.refAllDecls(@This());
 }
