@@ -226,14 +226,15 @@ pub const Pointer = struct {
                 }
                 // 19
                 try p.ss.toss.pushVector([2]i64{ 0, 0 });
-                i = 0;
-                while (i < p.argv.len) : (i += 1) {
+                i = p.argv.len - 1;
+                while (i >= 0) : (i -= 1) {
                     try p.ss.toss.push(0);
                     var j: usize = p.argv[i].len - 1;
                     while (true) : (j -= 1) {
                         try p.ss.toss.push(p.argv[i][j]);
                         if (j == 0) break;
                     }
+                    if (i == 0) break;
                 }
                 // 18
                 i = 0;
