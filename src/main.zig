@@ -38,7 +38,7 @@ test "sanity" {
     const expected = "0123456789";
     const args = [_][]const u8{"sanity"};
     const env = [_][*:0]const u8{"ENV=TEST"};
-    var i = try interpreter.Interpreter.init(std.testing.allocator, file.reader(), args[0..], env[0..]);
+    var i = try interpreter.Interpreter.init(std.testing.allocator, file.reader(), testTimestamp, args[0..], env[0..]);
     defer i.deinit();
     var ioContext = io.context(stdin.reader(), stdout.writer());
     try std.testing.expectEqual(try i.run(&ioContext), 0);
