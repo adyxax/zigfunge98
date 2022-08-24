@@ -44,3 +44,21 @@ test "sanity" {
     try std.testing.expectEqual(try i.run(&ioContext), 0);
     try std.testing.expectEqual(std.mem.eql(u8, stdout.items, expected), true);
 }
+test "mycology" {
+    var file = try std.fs.cwd().openFile("mycology/mycology.b98", .{});
+    defer file.close();
+    var stdin = std.io.fixedBufferStream("");
+    var stdout = std.ArrayList(u8).init(std.testing.allocator);
+    defer stdout.deinit();
+    var expected = try std.fs.cwd().openFile("tests/mycology.stdout", .{});
+    defer expected.close();
+    const expectedOutput = try expected.reader().readAllAlloc(std.testing.allocator, 8192);
+    defer std.testing.allocator.free(expectedOutput);
+    const args = [_][]const u8{ "test", "sanity" };
+    const env = [_][*:0]const u8{ "ENV=TEST", "FOO=BAR" };
+    var i = try interpreter.Interpreter.init(std.testing.allocator, file.reader(), testTimestamp, args[0..], env[0..]);
+    defer i.deinit();
+    var ioContext = io.context(stdin.reader(), stdout.writer());
+    try std.testing.expectEqual(try i.run(&ioContext), 15);
+    try std.testing.expectEqual(std.mem.eql(u8, stdout.items, expectedOutput), true);
+}
