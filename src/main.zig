@@ -36,8 +36,8 @@ test "sanity" {
     var stdout = std.ArrayList(u8).init(std.testing.allocator);
     defer stdout.deinit();
     const expected = "0123456789";
-    const args = [_][]const u8{"sanity"};
-    const env = [_][*:0]const u8{"ENV=TEST"};
+    const args = [_][]const u8{ "test", "sanity" };
+    const env = [_][*:0]const u8{ "ENV=TEST", "FOO=BAR" };
     var i = try interpreter.Interpreter.init(std.testing.allocator, file.reader(), testTimestamp, args[0..], env[0..]);
     defer i.deinit();
     var ioContext = io.context(stdin.reader(), stdout.writer());
