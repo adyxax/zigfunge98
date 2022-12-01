@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub fn Context(readerType: anytype, writerType: anytype) type {
+pub fn Context(comptime readerType: anytype, comptime writerType: anytype) type {
     return struct {
         reader: readerType,
         writer: writerType,

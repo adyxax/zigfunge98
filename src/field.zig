@@ -307,10 +307,10 @@ pub const Field = struct {
     }
     test "load" {
         const crData = [_]u8{'v'} ** 4095 ++ "\r\n @";
-        const cr = std.io.fixedBufferStream(crData).reader();
+        var cr = std.io.fixedBufferStream(crData);
         var f = try Field.init(std.testing.allocator);
         defer f.deinit();
-        try f.load(cr);
+        try f.load(cr.reader());
         try std.testing.expectEqual(f.x, 0);
         try std.testing.expectEqual(f.y, 0);
         try std.testing.expectEqual(f.lx, 4095);
@@ -318,11 +318,11 @@ pub const Field = struct {
         try std.testing.expectEqual(f.lines.items[0].data.items[0], 'v');
         try std.testing.expectEqual(f.lines.items[1].x, 1);
         try std.testing.expectEqual(f.lines.items[1].data.items[0], '@');
-        const cr2 = std.io.fixedBufferStream("v\r@").reader();
-        try std.testing.expectEqual(f.load(cr2), error.FIELD_NOT_EMPTY);
+        var cr2 = std.io.fixedBufferStream("v\r@");
+        try std.testing.expectEqual(f.load(cr2.reader()), error.FIELD_NOT_EMPTY);
         var f2 = try Field.init(std.testing.allocator);
         defer f2.deinit();
-        try std.testing.expectEqual(f2.load(cr2), error.GOT_CR_WITHOUT_LF);
+        try std.testing.expectEqual(f2.load(cr2.reader()), error.GOT_CR_WITHOUT_LF);
     }
     pub fn set(f: *Field, x: i64, y: i64, v: i64) !void {
         if (v == ' ') return f.blank(x, y);
@@ -409,16 +409,16 @@ pub const Field = struct {
         }
     }
     test "step" {
-        const minimal = std.io.fixedBufferStream("@").reader();
+        var minimal = std.io.fixedBufferStream("@");
         var f = try Field.init(std.testing.allocator);
         defer f.deinit();
-        try f.load(minimal);
+        try f.load(minimal.reader());
         try std.testing.expectEqual(f.step(0, 0, 0, 0), .{ .x = 0, .y = 0 });
         try std.testing.expectEqual(f.step(0, 0, 1, 0), .{ .x = 0, .y = 0 });
-        const hello = std.io.fixedBufferStream("64+\"!dlroW ,olleH\">:#,_@\n").reader();
+        var hello = std.io.fixedBufferStream("64+\"!dlroW ,olleH\">:#,_@\n");
         var fHello = try Field.init(std.testing.allocator);
         defer fHello.deinit();
-        try fHello.load(hello);
+        try fHello.load(hello.reader());
         try std.testing.expectEqual(fHello.step(3, 0, 0, 0), .{ .x = 3, .y = 0 });
         try std.testing.expectEqual(fHello.step(3, 0, 1, 0), .{ .x = 4, .y = 0 });
         try std.testing.expectEqual(fHello.step(0, 0, -1, 0), .{ .x = 23, .y = 0 });
@@ -429,8 +429,8 @@ test "all" {
     std.testing.refAllDecls(@This());
 }
 test "hello" {
-    const hello = std.io.fixedBufferStream("64+\"!dlroW ,olleH\">:#,_@\n").reader();
-    var f = try Field.init_from_reader(std.testing.allocator, hello);
+    var hello = std.io.fixedBufferStream("64+\"!dlroW ,olleH\">:#,_@\n");
+    var f = try Field.init_from_reader(std.testing.allocator, hello.reader());
     defer f.deinit();
     try std.testing.expectEqual(f.x, 0);
     try std.testing.expectEqual(f.y, 0);
@@ -439,8 +439,8 @@ test "hello" {
     try std.testing.expectEqual(f.lines.items[0].data.items[0], '6');
 }
 test "minimal" {
-    const minimal = std.io.fixedBufferStream("@").reader();
-    var f = try Field.init_from_reader(std.testing.allocator, minimal);
+    var minimal = std.io.fixedBufferStream("@");
+    var f = try Field.init_from_reader(std.testing.allocator, minimal.reader());
     defer f.deinit();
     try std.testing.expectEqual(f.x, 0);
     try std.testing.expectEqual(f.y, 0);

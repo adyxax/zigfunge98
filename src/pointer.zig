@@ -25,8 +25,8 @@ pub const Pointer = struct {
     ss: *stackStack.StackStack,
     env: []const [*:0]const u8,
     argv: []const []const u8,
-    rand: *std.rand.Random,
-    timestamp: fn () i64,
+    rand: std.rand.DefaultPrng,
+    timestamp: ?i64,
 
     pub fn deinit(self: *Pointer) void {
         self.ss.deinit();
@@ -245,7 +245,8 @@ pub const Pointer = struct {
                 // 17
                 try p.ss.toss.push(@intCast(i64, p.ss.data.items.len) + 1);
                 // 16
-                const now = std.time.epoch.EpochSeconds{ .secs = @intCast(u64, p.timestamp()) };
+                const ts = if (p.timestamp) |v| v else std.time.timestamp();
+                const now = std.time.epoch.EpochSeconds{ .secs = @intCast(u64, ts) };
                 const epochDay = now.getEpochDay();
                 const daySeconds = now.getDaySeconds();
                 try p.ss.toss.push(@intCast(i64, daySeconds.getHoursIntoDay()) * 256 * 256 + @intCast(i64, daySeconds.getMinutesIntoHour()) * 256 + @intCast(i64, daySeconds.getSecondsIntoMinute()));
@@ -349,7 +350,7 @@ pub const Pointer = struct {
         self.step();
         return result;
     }
-    pub fn init(allocator: std.mem.Allocator, f: *field.Field, timestamp: fn () i64, argv: []const []const u8, env: []const [*:0]const u8) !*Pointer {
+    pub fn init(allocator: std.mem.Allocator, f: *field.Field, timestamp: ?i64, argv: []const []const u8, env: []const [*:0]const u8) !*Pointer {
         var p = try allocator.create(Pointer);
         errdefer allocator.destroy(p);
         p.allocator = allocator;
@@ -368,8 +369,7 @@ pub const Pointer = struct {
         // Initializing the random number generator
         var seed: u64 = undefined;
         try std.os.getrandom(std.mem.asBytes(&seed));
-        var prng = std.rand.DefaultPrng.init(seed);
-        p.rand = &prng.random();
+        p.rand = std.rand.DefaultPrng.init(seed);
         p.timestamp = timestamp;
         return p;
     }
@@ -393,7 +393,7 @@ pub const Pointer = struct {
             },
             '?' => {
                 const directions = [_]i8{ 0, -1, 1, 0, 0, 1, -1, 0 };
-                const r = 2 * p.rand.intRangeAtMost(u8, 0, 3);
+                const r = 2 * p.rand.random().intRangeAtMost(u8, 0, 3);
                 p.dx = directions[r];
                 p.dy = directions[r + 1];
             },
@@ -432,15 +432,14 @@ pub const Pointer = struct {
     }
 };
 
-fn testTimestamp() i64 {
-    return 1660681247;
-}
+const testTimestamp: i64 = 1660681247;
+
 test "all" {
     std.testing.refAllDecls(@This());
 }
 test "minimal" {
-    const minimal = std.io.fixedBufferStream("@").reader();
-    var f = try field.Field.init_from_reader(std.testing.allocator, minimal);
+    var minimal = std.io.fixedBufferStream("@");
+    var f = try field.Field.init_from_reader(std.testing.allocator, minimal.reader());
     defer f.deinit();
     const argv = [_][]const u8{"minimal"};
     const env = [_][*:0]const u8{"ENV=TEST"};
@@ -450,8 +449,8 @@ test "minimal" {
     try std.testing.expectEqual(p.exec(&ioContext), pointerReturn{});
 }
 test "almost minimal" {
-    const minimal = std.io.fixedBufferStream(" @").reader();
-    var f = try field.Field.init_from_reader(std.testing.allocator, minimal);
+    var minimal = std.io.fixedBufferStream(" @");
+    var f = try field.Field.init_from_reader(std.testing.allocator, minimal.reader());
     defer f.deinit();
     const argv = [_][]const u8{"minimal"};
     const env = [_][*:0]const u8{"ENV=TEST"};
