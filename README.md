@@ -25,7 +25,7 @@ To get, compile then install zigfunge98, do something like:
 ```sh
 git clone https://git.adyxax.org/adyxax/zigfunge98
 cd zigfunge98
-zig build
+zig build -Drelease-safe
 install ./zig-out/bin/zigfunge98 ~/.local/bin/
 ```
 
@@ -51,9 +51,14 @@ zig build test -Dtest-coverage
 firefox kcov-output/index.html
 ```
 
+To build a debug build, simply use:
+```sh
+zig build
+```
+
 For a non debug build, use either one of:
 ```sh
-zig build -O ReleaseSafe
-zig build -O ReleaseSmall
-zig build -O ReleaseFast
+zig build -Drelease-safe
+zig build -Drelease-small
+zig build -Drelease-fast
 ```
