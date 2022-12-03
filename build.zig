@@ -22,6 +22,12 @@ pub fn build(b: *std.build.Builder) void {
         run_cmd.addArgs(args);
     }
 
+    const tui = b.addExecutable("zigfunge98-tui", "src/tui.zig");
+    tui.addPackagePath("spoon", "lib/spoon/import.zig");
+    tui.setTarget(target);
+    tui.setBuildMode(mode);
+    tui.install();
+
     const coverage = b.option(bool, "test-coverage", "Generate test coverage") orelse false;
 
     const run_step = b.step("run", "Run the app");

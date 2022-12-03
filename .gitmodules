@@ -4,3 +4,6 @@
 [submodule "spec"]
 	path = spec
 	url = https://github.com/catseye/Funge-98
+[submodule "lib/spoon"]
+	path = lib/spoon
+	url = https://git.sr.ht/~leon_plickat/zig-spoon
