@@ -393,35 +393,49 @@ pub const Field = struct {
         try std.testing.expectEqual(f.get(8, 2), '2');
         try std.testing.expectEqual(f.get(9, 2), ' ');
     }
-    pub fn step(f: *Field, x: i64, y: i64, dx: i64, dy: i64) struct { x: i64, y: i64 } {
+    pub fn step(f: *Field, x: i64, y: i64, dx: i64, dy: i64, smartAdvance: bool, jumping: bool) struct { x: i64, y: i64 } {
         var a = x + dx;
         var b = y + dy;
-        if (f.isIn(a, b)) return .{ .x = a, .y = b };
-        // # We are stepping outside, we need to wrap the Lahey-space
-        a = x;
-        b = y;
-        while (true) {
-            var c = a - dx;
-            var d = b - dy;
-            if (!f.isIn(c, d)) return .{ .x = a, .y = b };
-            a = c;
-            b = d;
+        if (!f.isIn(a, b)) {
+            // # We are stepping outside, we need to wrap the Lahey-space
+            a = x;
+            b = y;
+            while (true) {
+                var c = a - dx;
+                var d = b - dy;
+                if (!f.isIn(c, d)) break;
+                a = c;
+                b = d;
+            }
         }
+        if (smartAdvance) {
+            const v = f.get(a, b);
+            if (jumping) {
+                return f.step(a, b, dx, dy, true, v != ';');
+            }
+            if (v == ' ') {
+                return f.step(a, b, dx, dy, true, false);
+            }
+            if (v == ';') {
+                return f.step(a, b, dx, dy, true, true);
+            }
+        }
+        return .{ .x = a, .y = b };
     }
     test "step" {
         var minimal = std.io.fixedBufferStream("@");
         var f = try Field.init(std.testing.allocator);
         defer f.deinit();
         try f.load(minimal.reader());
-        try std.testing.expectEqual(f.step(0, 0, 0, 0), .{ .x = 0, .y = 0 });
-        try std.testing.expectEqual(f.step(0, 0, 1, 0), .{ .x = 0, .y = 0 });
+        try std.testing.expectEqual(f.step(0, 0, 0, 0, false, false), .{ .x = 0, .y = 0 });
+        try std.testing.expectEqual(f.step(0, 0, 1, 0, false, false), .{ .x = 0, .y = 0 });
         var hello = std.io.fixedBufferStream("64+\"!dlroW ,olleH\">:#,_@\n");
         var fHello = try Field.init(std.testing.allocator);
         defer fHello.deinit();
         try fHello.load(hello.reader());
-        try std.testing.expectEqual(fHello.step(3, 0, 0, 0), .{ .x = 3, .y = 0 });
-        try std.testing.expectEqual(fHello.step(3, 0, 1, 0), .{ .x = 4, .y = 0 });
-        try std.testing.expectEqual(fHello.step(0, 0, -1, 0), .{ .x = 23, .y = 0 });
+        try std.testing.expectEqual(fHello.step(3, 0, 0, 0, false, false), .{ .x = 3, .y = 0 });
+        try std.testing.expectEqual(fHello.step(3, 0, 1, 0, false, false), .{ .x = 4, .y = 0 });
+        try std.testing.expectEqual(fHello.step(0, 0, -1, 0, false, false), .{ .x = 23, .y = 0 });
     }
 };
 

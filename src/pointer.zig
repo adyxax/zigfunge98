@@ -40,18 +40,20 @@ pub const Pointer = struct {
         switch (c) {
             '@' => return pointerReturn{},
             'z' => {},
-            '#' => p.step(),
+            '#' => {
+                p.step(false);
+            },
             'j' => {
                 var n = p.ss.toss.pop();
                 var j: usize = 0;
                 if (n > 0) {
                     while (j < n) : (j += 1) {
-                        p.step();
+                        p.step(false);
                     }
                 } else {
                     p.reverse();
                     while (j < -n) : (j += 1) {
-                        p.step();
+                        p.step(false);
                     }
                     p.reverse();
                 }
@@ -61,9 +63,9 @@ pub const Pointer = struct {
                 const x = p.x;
                 const y = p.y;
                 const n = p.ss.toss.pop();
-                var v = p.stepAndGet();
+                var v = p.stepAndGet(false);
                 var jumpingMode = false;
-                while (jumpingMode or v == ' ' or v == ';') : (v = p.stepAndGet()) {
+                while (jumpingMode or v == ' ' or v == ';') : (v = p.stepAndGet(false)) {
                     if (v == ';') jumpingMode = !jumpingMode;
                 }
                 if (n > 0) {
@@ -147,9 +149,11 @@ pub const Pointer = struct {
                 }
             },
             '"' => p.stringMode = true,
-            '\'' => try p.ss.toss.push(p.stepAndGet()),
+            '\'' => {
+                try p.ss.toss.push(p.stepAndGet(false));
+            },
             's' => {
-                p.step();
+                p.step(false);
                 try p.field.set(p.x, p.y, p.ss.toss.pop());
             },
             '$' => _ = p.ss.toss.pop(),
@@ -331,7 +335,7 @@ pub const Pointer = struct {
         if (self.stringMode) {
             if (self.lastCharWasSpace) {
                 while (c == ' ') {
-                    c = self.stepAndGet();
+                    c = self.stepAndGet(false);
                 }
                 self.lastCharWasSpace = false;
             }
@@ -345,11 +349,11 @@ pub const Pointer = struct {
             var jumpingMode = false;
             while (jumpingMode or c == ' ' or c == ';') {
                 if (c == ';') jumpingMode = !jumpingMode;
-                c = self.stepAndGet();
+                c = self.stepAndGet(false);
             }
             result = try self.eval(ioContext, c);
         }
-        self.step();
+        self.step(!self.stringMode);
         return result;
     }
     pub fn init(allocator: std.mem.Allocator, f: *field.Field, timestamp: ?i64, argv: []const []const u8, env: []const [*:0]const u8) !*Pointer {
@@ -423,13 +427,13 @@ pub const Pointer = struct {
         p.dx = -p.dx;
         p.dy = -p.dy;
     }
-    inline fn step(self: *Pointer) void {
-        const v = self.field.step(self.x, self.y, self.dx, self.dy);
+    inline fn step(self: *Pointer, smartAdvance: bool) void {
+        const v = self.field.step(self.x, self.y, self.dx, self.dy, smartAdvance, false);
         self.x = v.x;
         self.y = v.y;
     }
-    inline fn stepAndGet(self: *Pointer) i64 {
-        self.step();
+    inline fn stepAndGet(self: *Pointer, smartAdvance: bool) i64 {
+        self.step(smartAdvance);
         return self.field.get(self.x, self.y);
     }
 };
