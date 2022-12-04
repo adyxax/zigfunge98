@@ -352,9 +352,6 @@ pub const Pointer = struct {
         self.step();
         return result;
     }
-    pub inline fn getInfo(self: *Pointer) PointerInfo {
-        return .{ .x = self.x, .y = self.y, .dx = self.dx, .dy = self.dy };
-    }
     pub fn init(allocator: std.mem.Allocator, f: *field.Field, timestamp: ?i64, argv: []const []const u8, env: []const [*:0]const u8) !*Pointer {
         var p = try allocator.create(Pointer);
         errdefer allocator.destroy(p);

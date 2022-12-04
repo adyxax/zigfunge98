@@ -13,12 +13,6 @@ pub const Interpreter = struct {
         self.field.deinit();
         self.allocator.destroy(self);
     }
-    pub inline fn getField(self: *Interpreter) *field.Field {
-        return self.field;
-    }
-    pub inline fn getPointer(self: *Interpreter) *pointer.Pointer {
-        return self.pointer;
-    }
     pub fn init(allocator: std.mem.Allocator, fileReader: anytype, timestamp: ?i64, args: []const []const u8, env: []const [*:0]const u8) !*Interpreter {
         var i = try allocator.create(Interpreter);
         errdefer allocator.destroy(i);
@@ -31,12 +25,8 @@ pub const Interpreter = struct {
     }
     pub fn run(self: *Interpreter, ioContext: anytype) !i64 {
         while (true) {
-            if (try self.pointer.exec(ioContext)) |ret| {
-                if (ret.code) |code| {
-                    return code;
-                } else {
-                    return 0;
-                }
+            if (try self.step(ioContext)) |ret| {
+                return ret;
             }
         }
     }

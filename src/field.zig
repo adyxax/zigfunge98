@@ -69,12 +69,6 @@ const Line = struct {
         if (x >= l.x and x < l.x + @intCast(i64, l.len())) return l.data.items[@intCast(usize, x - @intCast(i64, l.x))];
         return ' ';
     }
-    pub inline fn getData(l: *Line) std.ArrayList(i64) {
-        return l.data;
-    }
-    pub inline fn getX(l: *Line) i64 {
-        return l.x;
-    }
     fn init(allocator: std.mem.Allocator) !*Line {
         var l = try allocator.create(Line);
         l.allocator = allocator;
@@ -249,9 +243,6 @@ pub const Field = struct {
     pub fn get(f: *Field, x: i64, y: i64) i64 {
         if (y >= f.y and y < f.y + @intCast(i64, f.lines.items.len)) return f.lines.items[@intCast(usize, y - @intCast(i64, f.y))].get(x);
         return ' ';
-    }
-    pub fn getLine(f: *Field, y: usize) *Line {
-        return f.lines.items[y];
     }
     pub fn getSize(f: Field) [4]i64 {
         return [4]i64{ f.x, f.y, @intCast(i64, f.lx), @intCast(i64, f.lines.items.len) };
