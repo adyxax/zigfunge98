@@ -283,7 +283,7 @@ pub const Field = struct {
                     lastIsCR = false;
                     switch (buffer[i]) {
                         '\n' => continue,
-                        else => return error.GOT_CR_WITHOUT_LF,
+                        else => {},
                     }
                 }
                 switch (buffer[i]) {
@@ -322,7 +322,14 @@ pub const Field = struct {
         try std.testing.expectEqual(f.load(cr2.reader()), error.FIELD_NOT_EMPTY);
         var f2 = try Field.init(std.testing.allocator);
         defer f2.deinit();
-        try std.testing.expectEqual(f2.load(cr2.reader()), error.GOT_CR_WITHOUT_LF);
+        try f2.load(cr2.reader());
+        try std.testing.expectEqual(f2.x, 0);
+        try std.testing.expectEqual(f2.y, 0);
+        try std.testing.expectEqual(f2.lx, 1);
+        try std.testing.expectEqual(f2.lines.items.len, 2);
+        try std.testing.expectEqual(f2.lines.items[0].data.items[0], 'v');
+        try std.testing.expectEqual(f2.lines.items[1].x, 0);
+        try std.testing.expectEqual(f2.lines.items[1].data.items[0], '@');
     }
     pub fn set(f: *Field, x: i64, y: i64, v: i64) !void {
         if (v == ' ') return f.blank(x, y);
