@@ -3,10 +3,10 @@ const interpreter = @import("interpreter.zig");
 const io = @import("io.zig");
 
 pub fn main() anyerror!void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer std.debug.assert(!gpa.deinit());
-    var args = try std.process.argsAlloc(gpa.allocator());
-    defer std.process.argsFree(gpa.allocator(), args);
+    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
+    const gpa = general_purpose_allocator.allocator();
+    var args = try std.process.argsAlloc(gpa);
+    defer std.process.argsFree(gpa, args);
     if (args.len < 2) {
         std.debug.print("Usage: {s} <b98_file_to_run>\n", .{args[0]});
         std.os.exit(1);
@@ -16,11 +16,11 @@ pub fn main() anyerror!void {
     defer file.close();
 
     const env: []const [*:0]const u8 = std.os.environ;
-    var i = try interpreter.Interpreter.init(gpa.allocator(), file.reader(), null, args, env[0..]);
+    var i = try interpreter.Interpreter.init(gpa, file.reader(), null, args, env[0..]);
     defer i.deinit();
 
     var ioContext = io.context(std.io.getStdIn().reader(), std.io.getStdOut().writer());
-    std.os.exit(@intCast(u8, try i.run(&ioContext)));
+    std.os.exit(@intCast(try i.run(&ioContext)));
 }
 
 const testTimestamp: i64 = 1660681247;

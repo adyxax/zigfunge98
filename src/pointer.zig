@@ -245,21 +245,26 @@ pub const Pointer = struct {
                 // 18
                 i = 0;
                 while (i < p.ss.data.items.len) : (i += 1) {
-                    try p.ss.toss.push(@intCast(i64, p.ss.data.items[i].data.items.len));
+                    try p.ss.toss.push(@intCast(p.ss.data.items[i].data.items.len));
                 }
-                try p.ss.toss.push(@intCast(i64, height));
+                try p.ss.toss.push(@intCast(height));
                 // 17
-                try p.ss.toss.push(@intCast(i64, p.ss.data.items.len) + 1);
+                try p.ss.toss.push(@intCast(p.ss.data.items.len + 1));
                 // 16
                 const ts = if (p.timestamp) |v| v else std.time.timestamp();
-                const now = std.time.epoch.EpochSeconds{ .secs = @intCast(u64, ts) };
+                const now = std.time.epoch.EpochSeconds{ .secs = @intCast(ts) };
                 const epochDay = now.getEpochDay();
                 const daySeconds = now.getDaySeconds();
-                try p.ss.toss.push(@intCast(i64, daySeconds.getHoursIntoDay()) * 256 * 256 + @intCast(i64, daySeconds.getMinutesIntoHour()) * 256 + @intCast(i64, daySeconds.getSecondsIntoMinute()));
+                const hours: i64 = @intCast(daySeconds.getHoursIntoDay());
+                const minutes: i64 = @intCast(daySeconds.getMinutesIntoHour());
+                const seconds: i64 = @intCast(daySeconds.getSecondsIntoMinute());
+                try p.ss.toss.push(hours * 256 * 256 + minutes * 256 + seconds);
                 // 15
                 const yearAndDay = epochDay.calculateYearDay();
+                const year: i64 = @intCast(yearAndDay.year);
                 const monthAndDay = yearAndDay.calculateMonthDay();
-                try p.ss.toss.push(@intCast(i64, yearAndDay.year - 1900) * 256 * 256 + @intCast(i64, monthAndDay.month.numeric()) * 256 + @intCast(i64, monthAndDay.day_index));
+                const month: i64 = @intCast(monthAndDay.month.numeric());
+                try p.ss.toss.push((year - 1900) * 256 * 256 + month * 256 + monthAndDay.day_index);
                 // 14
                 try p.ss.toss.pushVector([2]i64{ fieldSize[2] - 1, fieldSize[3] - 1 });
                 // 13
@@ -289,7 +294,7 @@ pub const Pointer = struct {
                 // 1
                 try p.ss.toss.push(0b00000); // TODO update when implementing t, i, o and =
                 if (n > 0) {
-                    try p.ss.toss.yCommandPick(@intCast(usize, n), height);
+                    try p.ss.toss.yCommandPick(@intCast(n), height);
                 }
             },
             '(' => {

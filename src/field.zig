@@ -5,17 +5,17 @@ const Line = struct {
     x: i64 = 0,
     data: std.ArrayList(i64),
     fn blank(l: *Line, x: i64) void {
-        const lx = @intCast(i64, l.len());
+        const lx: i64 = @intCast(l.len());
         if (x < l.x or x > l.x + lx - 1) { // outside the field
             return;
         } else if (x > l.x and x < l.x + lx - 1) { // just set the value
-            l.data.items[@intCast(usize, x - l.x)] = ' ';
+            l.data.items[@intCast(x - l.x)] = ' ';
         } else if (lx == 1) { // this was the last character on the line
             l.data.items.len = 0;
         } else if (x == l.x) { // we need to remove leading spaces
             var i: usize = 1;
             while (l.data.items[i] == ' ') : (i += 1) {}
-            l.x += @intCast(i64, i);
+            l.x += @intCast(i);
             std.mem.copy(i64, l.data.items[0 .. l.len() - i], l.data.items[i..]);
             l.data.items.len -= i;
         } else { // we need to remove trailing spaces
@@ -66,7 +66,8 @@ const Line = struct {
         self.allocator.destroy(self);
     }
     fn get(l: *Line, x: i64) i64 {
-        if (x >= l.x and x < l.x + @intCast(i64, l.len())) return l.data.items[@intCast(usize, x - @intCast(i64, l.x))];
+        const ll: i64 = @intCast(l.len());
+        if (x >= l.x and x < l.x + ll) return l.data.items[@intCast(x - l.x)];
         return ' ';
     }
     fn init(allocator: std.mem.Allocator) !*Line {
@@ -84,10 +85,10 @@ const Line = struct {
             try l.data.append(v);
             return;
         }
-        const lx = @intCast(i64, l.len());
+        const lx: i64 = @intCast(l.len());
         if (x >= l.x) {
             if (x < l.x + lx) { // just set the value
-                l.data.items[@intCast(usize, x - l.x)] = v;
+                l.data.items[@intCast(x - l.x)] = v;
             } else { // we need to add trailing spaces
                 var i: usize = l.len();
                 while (i < x - l.x) : (i += 1) {
@@ -97,12 +98,12 @@ const Line = struct {
             }
         } else { // we need to shift right and add leading spaces
             const oldLen = l.len();
-            l.data.items.len += @intCast(usize, l.x - x);
+            l.data.items.len += @intCast(l.x - x);
             try l.data.ensureUnusedCapacity(l.len());
-            std.mem.copyBackwards(i64, l.data.items[@intCast(usize, l.x - x)..], l.data.items[0..oldLen]);
+            std.mem.copyBackwards(i64, l.data.items[@intCast(l.x - x)..], l.data.items[0..oldLen]);
             l.data.items[0] = v;
             var i: usize = 1;
-            while (i < @intCast(usize, l.x - x)) : (i += 1) {
+            while (i < l.x - x) : (i += 1) {
                 l.data.items[i] = ' ';
             }
             l.x = x;
@@ -150,10 +151,11 @@ pub const Field = struct {
     lines: std.ArrayList(*Line),
     lx: usize = 0,
     pub fn blank(f: *Field, x: i64, y: i64) !void {
-        const ly = @intCast(i64, f.lines.items.len);
+        const ly = f.lines.items.len;
         if (ly == 0) return error.EmptyFieldError;
-        if (y < f.y or y >= f.y + ly) return; // outside the field
-        var l = f.lines.items[@intCast(usize, y - f.y)];
+        const lly: i64 = @intCast(ly);
+        if (y < f.y or y >= f.y + lly) return; // outside the field
+        var l = f.lines.items[@intCast(y - f.y)];
         if (l.len() == 0) return; // the line is already empty
         l.blank(x);
         if (l.len() == 0) {
@@ -165,27 +167,29 @@ pub const Field = struct {
                 while (f.lines.items[i].len() == 0) : (i += 1) {
                     f.lines.items[i].deinit();
                 }
-                f.y += @intCast(i64, i);
+                f.y += @intCast(i);
                 std.mem.copy(*Line, f.lines.items[0 .. f.lines.items.len - i], f.lines.items[i..]);
                 f.lines.items.len -= i;
-            } else if (y == f.y + ly - 1) { // we need to remove trailing lines
+            } else if (y == f.y + lly - 1) { // we need to remove trailing lines
                 l.deinit();
-                var i: usize = @intCast(usize, ly) - 2;
+                var i: usize = ly - 2;
                 while (f.lines.items[i].len() == 0) : (i -= 1) {
                     f.lines.items[i].deinit();
                 }
                 f.lines.items.len = i + 1;
             }
         }
-        if (x == f.x or x == f.x + @intCast(i64, f.lx) - 1) { // recalculate boundaries
+        const flx: i64 = @intCast(f.lx);
+        if (x == f.x or x == f.x + flx - 1) { // recalculate boundaries
             f.x = std.math.maxInt(i64);
             var x2: i64 = std.math.minInt(i64);
             for (f.lines.items) |line| {
                 if (line.len() == 0) continue;
                 if (f.x > line.x) f.x = line.x;
-                if (x2 < line.x + @intCast(i64, line.len())) x2 = line.x + @intCast(i64, line.len());
+                const ll: i64 = @intCast(line.len());
+                if (x2 < line.x + ll) x2 = line.x + ll;
             }
-            f.lx = @intCast(usize, x2 - f.x);
+            f.lx = @intCast(x2 - f.x);
         }
     }
     test "blank" {
@@ -241,11 +245,12 @@ pub const Field = struct {
         self.allocator.destroy(self);
     }
     pub fn get(f: *Field, x: i64, y: i64) i64 {
-        if (y >= f.y and y < f.y + @intCast(i64, f.lines.items.len)) return f.lines.items[@intCast(usize, y - @intCast(i64, f.y))].get(x);
+        const fl: i64 = @intCast(f.lines.items.len);
+        if (y >= f.y and y < f.y + fl) return f.lines.items[@intCast(y - f.y)].get(x);
         return ' ';
     }
     pub fn getSize(f: Field) [4]i64 {
-        return [4]i64{ f.x, f.y, @intCast(i64, f.lx), @intCast(i64, f.lines.items.len) };
+        return [4]i64{ f.x, f.y, @intCast(f.lx), @intCast(f.lines.items.len) };
     }
     fn init(allocator: std.mem.Allocator) !*Field {
         var f = try allocator.create(Field);
@@ -266,7 +271,9 @@ pub const Field = struct {
         return f;
     }
     inline fn isIn(f: *Field, x: i64, y: i64) bool {
-        return x >= f.x and y >= f.y and x < f.x + @intCast(i64, f.lx) and y < f.y + @intCast(i64, f.lines.items.len);
+        const fl: i64 = @intCast(f.lines.items.len);
+        const flx: i64 = @intCast(f.lx);
+        return x >= f.x and y >= f.y and x < f.x + flx and y < f.y + fl;
     }
     fn load(f: *Field, reader: anytype) !void {
         if (f.lines.items.len > 1 or f.lx > 0) return error.FIELD_NOT_EMPTY;
@@ -334,8 +341,9 @@ pub const Field = struct {
     pub fn set(f: *Field, x: i64, y: i64, v: i64) !void {
         if (v == ' ') return f.blank(x, y);
         if (y >= f.y) {
-            if (y < f.y + @intCast(i64, f.lines.items.len)) { // the line exists
-                try f.lines.items[@intCast(usize, y - f.y)].set(x, v);
+            const fl: i64 = @intCast(f.lines.items.len);
+            if (y < f.y + fl) { // the line exists
+                try f.lines.items[@intCast(y - f.y)].set(x, v);
             } else { // append lines
                 var i: usize = f.lines.items.len;
                 while (i < y - f.y) : (i += 1) {
@@ -347,27 +355,30 @@ pub const Field = struct {
             }
         } else { // preprend lines
             const oldLen = f.lines.items.len;
-            f.lines.items.len += @intCast(usize, f.y - y);
+            const dl: usize = @intCast(f.y - y);
+            f.lines.items.len += dl;
             try f.lines.ensureUnusedCapacity(f.lines.items.len);
-            std.mem.copyBackwards(*Line, f.lines.items[@intCast(usize, f.y - y)..], f.lines.items[0..oldLen]);
+            std.mem.copyBackwards(*Line, f.lines.items[dl..], f.lines.items[0..oldLen]);
             var l = try Line.init(f.allocator);
             try l.set(x, v);
             f.lines.items[0] = l;
             var i: usize = 1;
-            while (i < @intCast(usize, f.y - y)) : (i += 1) {
+            while (i < f.y - y) : (i += 1) {
                 f.lines.items[i] = try Line.init(f.allocator);
             }
             f.y = y;
         }
-        if (x < f.x or x >= f.x + @intCast(i64, f.lx)) { // recalculate boundaries
+        const flx: i64 = @intCast(f.lx);
+        if (x < f.x or x >= f.x + flx) { // recalculate boundaries
             f.x = std.math.maxInt(i64);
             var x2: i64 = std.math.minInt(i64);
             for (f.lines.items) |line| {
                 if (line.len() == 0) continue;
                 if (f.x > line.x) f.x = line.x;
-                if (x2 < line.x + @intCast(i64, line.len())) x2 = line.x + @intCast(i64, line.len());
+                const ll: i64 = @intCast(line.len());
+                if (x2 < line.x + ll) x2 = line.x + ll;
             }
-            f.lx = @intCast(usize, x2 - f.x);
+            f.lx = @intCast(x2 - f.x);
         }
         return;
     }

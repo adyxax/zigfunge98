@@ -1,5 +1,5 @@
 const std = @import("std");
-const vector = std.meta.Vector(2, i64);
+const vector = @Vector(2, i64);
 
 pub const Stack = struct {
     allocator: std.mem.Allocator,
@@ -78,7 +78,7 @@ pub const Stack = struct {
         // (aka begin) and '}' (aka end) stackstack commands
         try toss.data.ensureUnusedCapacity(n);
         var i: usize = n;
-        while (i >= std.math.min(soss.data.items.len, n) + 1) : (i -= 1) {
+        while (i >= @min(soss.data.items.len, n) + 1) : (i -= 1) {
             toss.data.appendAssumeCapacity(0);
         }
         while (i >= 1) : (i -= 1) {

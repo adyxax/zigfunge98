@@ -9,10 +9,10 @@ var intp: *interpreter.Interpreter = undefined;
 
 pub fn main() anyerror!void {
     //--- befunge initialization ----------------------------------------------
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer std.debug.assert(!gpa.deinit());
-    args = try std.process.argsAlloc(gpa.allocator());
-    defer std.process.argsFree(gpa.allocator(), args);
+    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
+    const gpa = general_purpose_allocator.allocator();
+    args = try std.process.argsAlloc(gpa);
+    defer std.process.argsFree(gpa, args);
     if (args.len < 2) {
         std.debug.print("Usage: {s} <b98_file_to_run>\n", .{args[0]});
         std.os.exit(1);
@@ -22,7 +22,7 @@ pub fn main() anyerror!void {
     defer file.close();
 
     const env: []const [*:0]const u8 = std.os.environ;
-    intp = try interpreter.Interpreter.init(gpa.allocator(), file.reader(), null, args, env[0..]);
+    intp = try interpreter.Interpreter.init(gpa, file.reader(), null, args, env[0..]);
     defer intp.deinit();
 
     var ioContext = io.context(std.io.getStdIn().reader(), std.io.getStdOut().writer()); // TODO io functions for tui
@@ -38,11 +38,13 @@ pub fn main() anyerror!void {
     }, null);
 
     var fds: [1]std.os.pollfd = undefined;
-    fds[0] = .{
-        .fd = term.tty.handle,
-        .events = std.os.POLL.IN,
-        .revents = undefined,
-    };
+    if (term.tty) |tty| {
+        fds[0] = .{
+            .fd = tty,
+            .events = std.os.POLL.IN,
+            .revents = undefined,
+        };
+    }
     try term.uncook(.{});
     defer term.cook() catch {};
 
@@ -68,9 +70,8 @@ pub fn main() anyerror!void {
                     term.deinit();
                     intp.deinit();
                     file.close();
-                    std.process.argsFree(gpa.allocator(), args);
-                    std.debug.assert(!gpa.deinit());
-                    std.os.exit(@intCast(u8, code));
+                    std.process.argsFree(gpa, args);
+                    std.os.exit(@intCast(code));
                 }
                 try render();
             }
@@ -110,7 +111,8 @@ fn render() !void {
         var s = rc.restrictedPaddingWriter(16);
         const v = intp.pointer.ss.toss.data.items[n];
         if (v >= 32 and v < 127) {
-            try s.writer().print("{c} - {d}", .{ @intCast(u8, v), v });
+            const tv: u8 = @intCast(v);
+            try s.writer().print("{c} - {d}", .{ tv, v });
         } else {
             try s.writer().print("{d}", .{v});
         }
@@ -119,28 +121,36 @@ fn render() !void {
     try rc.moveCursorTo(2, 18);
     try rc.setAttribute(.{ .fg = .blue, .reverse = true });
     var fieldTitle = rc.restrictedPaddingWriter(term.width - 17);
-    const size = intp.field.getSize();
+    const sizei = intp.field.getSize();
+    const size = [4]usize{ @intCast(sizei[0]), @intCast(sizei[1]), @intCast(sizei[2]), @intCast(sizei[3]) };
     try fieldTitle.writer().print("Funge field | top left corner:({d},{d}) size:{d}x{d}", .{ size[0], size[1], size[2], size[3] });
     try fieldTitle.pad();
     try rc.setAttribute(.{ .fg = .blue, .reverse = false });
     var y: usize = 0; // TODO negative lines
-    while (y < @min(@intCast(usize, size[3]), term.height - 3)) : (y += 1) {
+    while (y < @min(size[3], term.height - 3)) : (y += 1) {
         var field = rc.restrictedPaddingWriter(term.width - 17);
         const line = intp.field.lines.items[y];
         var x: usize = 0;
         if (line.x >= 0) {
-            try rc.moveCursorTo(y + 3, 18 + @intCast(usize, line.x));
+            const lx: usize = @intCast(line.x);
+            try rc.moveCursorTo(y + 3, 18 + lx);
         } else {
             try rc.moveCursorTo(y + 3, 18); // TODO negative columns
         }
         while (x < @min(line.data.items.len, term.width - 18)) : (x += 1) {
             var reset = false;
-            if (x + @intCast(usize, line.x) == intp.pointer.x and y == intp.pointer.y) { // TODO negatives
+            const xx: i64 = @intCast(x);
+            if (xx + line.x == intp.pointer.x and y == intp.pointer.y) { // TODO negatives
                 try rc.setAttribute(.{ .fg = .red, .reverse = true });
                 reset = true;
             }
             if (line.data.items[x] >= 32 and line.data.items[x] < 127) {
-                try field.writer().print("{c}", .{@intCast(u8, line.data.items[x])});
+                const v = line.data.items[x];
+                var vv: u8 = '?';
+                if (v >= 32 and v < 127) {
+                    vv = @intCast(v);
+                }
+                try field.writer().print("{c}", .{vv});
             } else {
                 try field.writer().writeAll("®");
             }

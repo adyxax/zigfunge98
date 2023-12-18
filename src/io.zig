@@ -60,7 +60,11 @@ pub fn Context(comptime readerType: anytype, comptime writerType: anytype) type 
             try std.testing.expectEqual(ioContext.decimalInput(), error.IOError);
         }
         pub fn characterOutput(self: Self, v: i64) !void {
-            try self.writer.print("{c}", .{@intCast(u8, v)});
+            var vv: u8 = '?';
+            if (v >= 0 and v <= 255) {
+                vv = @intCast(v);
+            }
+            try self.writer.print("{c}", .{vv});
             return;
         }
         pub fn decimalOutput(self: Self, v: i64) !void {

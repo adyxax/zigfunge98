@@ -28,7 +28,7 @@ pub const StackStack = struct {
         const n = soss.pop();
         self.toss = try stack.Stack.init(self.allocator);
         if (n > 0) {
-            try self.toss.transfert(soss, @intCast(u64, n));
+            try self.toss.transfert(soss, @intCast(n));
         } else if (n < 0) {
             var i: usize = 0;
             while (i < -n) : (i += 1) {
@@ -85,9 +85,11 @@ pub const StackStack = struct {
             const n = self.toss.pop();
             const v = soss.popVector();
             if (n > 0) {
-                try soss.transfert(self.toss, @intCast(u64, n));
+                const nn: usize = @intCast(n);
+                try soss.transfert(self.toss, nn);
             } else {
-                soss.discard(@intCast(u64, -n));
+                const nn: usize = @intCast(-n);
+                soss.discard(nn);
             }
             self.toss.deinit();
             self.toss = soss;
