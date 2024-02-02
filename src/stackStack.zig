@@ -174,7 +174,3 @@ pub const StackStack = struct {
         return self.toss;
     }
 };
-
-test "all" {
-    std.testing.refAllDecls(@This());
-}

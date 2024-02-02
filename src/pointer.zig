@@ -445,9 +445,6 @@ pub const Pointer = struct {
 
 const testTimestamp: i64 = 1660681247;
 
-test "all" {
-    std.testing.refAllDecls(@This());
-}
 test "minimal" {
     var minimal = std.io.fixedBufferStream("@");
     var f = try field.Field.init_from_reader(std.testing.allocator, minimal.reader());

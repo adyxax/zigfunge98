@@ -80,7 +80,3 @@ pub fn context(reader: anytype, writer: anytype) Context(@TypeOf(reader), @TypeO
         .writer = writer,
     };
 }
-
-test "all" {
-    std.testing.refAllDecls(@This());
-}

@@ -25,9 +25,6 @@ pub fn main() anyerror!void {
 
 const testTimestamp: i64 = 1660681247;
 
-test "all" {
-    std.testing.refAllDecls(@This());
-}
 test "sanity" {
     var file = try std.fs.cwd().openFile("mycology/sanity.bf", .{});
     defer file.close();

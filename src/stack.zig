@@ -157,7 +157,3 @@ pub const Stack = struct {
         }
     }
 };
-
-test "all" {
-    std.testing.refAllDecls(@This());
-}

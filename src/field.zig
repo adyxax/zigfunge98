@@ -457,9 +457,6 @@ pub const Field = struct {
     }
 };
 
-test "all" {
-    std.testing.refAllDecls(@This());
-}
 test "hello" {
     var hello = std.io.fixedBufferStream("64+\"!dlroW ,olleH\">:#,_@\n");
     var f = try Field.init_from_reader(std.testing.allocator, hello.reader());

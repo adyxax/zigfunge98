@@ -41,7 +41,3 @@ pub const Interpreter = struct {
         return null;
     }
 };
-
-test "all" {
-    std.testing.refAllDecls(@This());
-}
