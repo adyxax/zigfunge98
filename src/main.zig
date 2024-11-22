@@ -5,11 +5,11 @@ const io = @import("io.zig");
 pub fn main() anyerror!void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     const gpa = general_purpose_allocator.allocator();
-    var args = try std.process.argsAlloc(gpa);
+    const args = try std.process.argsAlloc(gpa);
     defer std.process.argsFree(gpa, args);
     if (args.len < 2) {
         std.debug.print("Usage: {s} <b98_file_to_run>\n", .{args[0]});
-        std.os.exit(1);
+        std.posix.exit(1);
     }
 
     var file = try std.fs.cwd().openFile(args[1], .{});
@@ -20,7 +20,7 @@ pub fn main() anyerror!void {
     defer i.deinit();
 
     var ioContext = io.context(std.io.getStdIn().reader(), std.io.getStdOut().writer());
-    std.os.exit(@intCast(try i.run(&ioContext)));
+    std.posix.exit(@intCast(try i.run(&ioContext)));
 }
 
 const testTimestamp: i64 = 1660681247;

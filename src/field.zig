@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const position = struct { x: i64, y: i64 };
+
 const Line = struct {
     allocator: std.mem.Allocator,
     x: i64 = 0,
@@ -16,7 +18,7 @@ const Line = struct {
             var i: usize = 1;
             while (l.data.items[i] == ' ') : (i += 1) {}
             l.x += @intCast(i);
-            std.mem.copy(i64, l.data.items[0 .. l.len() - i], l.data.items[i..]);
+            std.mem.copyForwards(i64, l.data.items[0 .. l.len() - i], l.data.items[i..]);
             l.data.items.len -= i;
         } else { // we need to remove trailing spaces
             var i: usize = l.len() - 1;
@@ -168,7 +170,7 @@ pub const Field = struct {
                     f.lines.items[i].deinit();
                 }
                 f.y += @intCast(i);
-                std.mem.copy(*Line, f.lines.items[0 .. f.lines.items.len - i], f.lines.items[i..]);
+                std.mem.copyForwards(*Line, f.lines.items[0 .. f.lines.items.len - i], f.lines.items[i..]);
                 f.lines.items.len -= i;
             } else if (y == f.y + lly - 1) { // we need to remove trailing lines
                 l.deinit();
@@ -259,7 +261,7 @@ pub const Field = struct {
         f.x = undefined;
         f.y = 0;
         f.lines = std.ArrayList(*Line).init(allocator);
-        var l = try f.lines.addOne();
+        const l = try f.lines.addOne();
         l.* = try Line.init(allocator);
         f.lx = 0;
         return f;
@@ -282,7 +284,7 @@ pub const Field = struct {
         var y: i64 = 0;
         while (true) {
             var buffer: [4096]u8 = undefined;
-            var l = try reader.read(buffer[0..]);
+            const l = try reader.read(buffer[0..]);
             if (l == 0) return;
             var i: usize = 0;
             while (i < l) : (i += 1) {
@@ -411,7 +413,7 @@ pub const Field = struct {
         try std.testing.expectEqual(f.get(8, 2), '2');
         try std.testing.expectEqual(f.get(9, 2), ' ');
     }
-    pub fn step(f: *Field, x: i64, y: i64, dx: i64, dy: i64, smartAdvance: bool, jumping: bool) struct { x: i64, y: i64 } {
+    pub fn step(f: *Field, x: i64, y: i64, dx: i64, dy: i64, smartAdvance: bool, jumping: bool) position {
         var a = x + dx;
         var b = y + dy;
         if (!f.isIn(a, b)) {
@@ -419,8 +421,8 @@ pub const Field = struct {
             a = x;
             b = y;
             while (true) {
-                var c = a - dx;
-                var d = b - dy;
+                const c = a - dx;
+                const d = b - dy;
                 if (!f.isIn(c, d)) break;
                 a = c;
                 b = d;
@@ -445,15 +447,15 @@ pub const Field = struct {
         var f = try Field.init(std.testing.allocator);
         defer f.deinit();
         try f.load(minimal.reader());
-        try std.testing.expectEqual(f.step(0, 0, 0, 0, false, false), .{ .x = 0, .y = 0 });
-        try std.testing.expectEqual(f.step(0, 0, 1, 0, false, false), .{ .x = 0, .y = 0 });
+        try std.testing.expectEqual(f.step(0, 0, 0, 0, false, false), @as(position, .{ .x = 0, .y = 0 }));
+        try std.testing.expectEqual(f.step(0, 0, 1, 0, false, false), @as(position, .{ .x = 0, .y = 0 }));
         var hello = std.io.fixedBufferStream("64+\"!dlroW ,olleH\">:#,_@\n");
         var fHello = try Field.init(std.testing.allocator);
         defer fHello.deinit();
         try fHello.load(hello.reader());
-        try std.testing.expectEqual(fHello.step(3, 0, 0, 0, false, false), .{ .x = 3, .y = 0 });
-        try std.testing.expectEqual(fHello.step(3, 0, 1, 0, false, false), .{ .x = 4, .y = 0 });
-        try std.testing.expectEqual(fHello.step(0, 0, -1, 0, false, false), .{ .x = 23, .y = 0 });
+        try std.testing.expectEqual(fHello.step(3, 0, 0, 0, false, false), @as(position, .{ .x = 3, .y = 0 }));
+        try std.testing.expectEqual(fHello.step(3, 0, 1, 0, false, false), @as(position, .{ .x = 4, .y = 0 }));
+        try std.testing.expectEqual(fHello.step(0, 0, -1, 0, false, false), @as(position, .{ .x = 23, .y = 0 }));
     }
 };
 

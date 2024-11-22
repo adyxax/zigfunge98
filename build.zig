@@ -6,7 +6,7 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "zigfunge98",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -19,7 +19,7 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
     const unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -34,7 +34,7 @@ pub fn build(b: *std.Build) void {
     const exclude = std.fmt.allocPrint(gpa, "--exclude-path={s}/.zig/", .{home}) catch "";
     defer gpa.free(exclude);
     if (coverage) {
-        unit_tests.test_runner = "/usr/bin/kcov";
+        unit_tests.test_runner = b.path("/usr/bin/kcov");
         unit_tests.setExecCmd(&[_]?[]const u8{
             "kcov",
             exclude,
@@ -51,14 +51,14 @@ pub fn build(b: *std.Build) void {
     // ----- TUI --------------------------------------------------------------
     const tui = b.addExecutable(.{
         .name = "zigfunge98-tui",
-        .root_source_file = .{ .path = "src/tui.zig" },
+        .root_source_file = b.path("src/tui.zig"),
         .target = target,
         .optimize = optimize,
     });
     const spoon = b.createModule(.{
-        .source_file = .{ .path = "lib/spoon/import.zig" },
+        .root_source_file = b.path("lib/spoon/import.zig"),
     });
-    tui.addModule("spoon", spoon);
+    tui.root_module.addImport("spoon", spoon);
     b.installArtifact(tui);
     const tui_cmd = b.addRunArtifact(tui);
     tui_cmd.step.dependOn(b.getInstallStep());
@@ -68,7 +68,7 @@ pub fn build(b: *std.Build) void {
     const tui_step = b.step("run-tui", "Run the app");
     tui_step.dependOn(&tui_cmd.step);
     const tui_unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/tui.zig" },
+        .root_source_file = b.path("src/tui.zig"),
         .target = target,
         .optimize = optimize,
     });

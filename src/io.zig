@@ -12,14 +12,14 @@ pub fn Context(comptime readerType: anytype, comptime writerType: anytype) type 
                 return c;
             }
             var buffer = [_]u8{0};
-            var n = try self.reader.read(buffer[0..]);
+            const n = try self.reader.read(buffer[0..]);
             if (n == 1) {
                 return buffer[0];
             }
             return error.IOError;
         }
         test "characterInput" {
-            var stdin = std.io.fixedBufferStream("ab0");
+            const stdin = std.io.fixedBufferStream("ab0");
             var stdout = std.ArrayList(u8).init(std.testing.allocator);
             defer stdout.deinit();
             var ioContext = context(stdin, stdout);
@@ -49,7 +49,7 @@ pub fn Context(comptime readerType: anytype, comptime writerType: anytype) type 
             return result;
         }
         test "decimalInput" {
-            var stdin = std.io.fixedBufferStream("1 234abc5d6ef");
+            const stdin = std.io.fixedBufferStream("1 234abc5d6ef");
             var stdout = std.ArrayList(u8).init(std.testing.allocator);
             defer stdout.deinit();
             var ioContext = context(stdin, stdout);

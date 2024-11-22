@@ -15,7 +15,7 @@ pub fn main() anyerror!void {
     defer std.process.argsFree(gpa, args);
     if (args.len < 2) {
         std.debug.print("Usage: {s} <b98_file_to_run>\n", .{args[0]});
-        std.os.exit(1);
+        std.posix.exit(1);
     }
 
     var file = try std.fs.cwd().openFile(args[1], .{});
@@ -29,19 +29,19 @@ pub fn main() anyerror!void {
 
     //--- Term initialization -------------------------------------------------
     try term.init(.{});
-    defer term.deinit();
+    defer term.deinit() catch {};
 
-    try std.os.sigaction(std.os.SIG.WINCH, &std.os.Sigaction{
+    try std.posix.sigaction(std.posix.SIG.WINCH, &std.posix.Sigaction{
         .handler = .{ .handler = handleSigWinch },
-        .mask = std.os.empty_sigset,
+        .mask = std.posix.empty_sigset,
         .flags = 0,
     }, null);
 
-    var fds: [1]std.os.pollfd = undefined;
+    var fds: [1]std.posix.pollfd = undefined;
     if (term.tty) |tty| {
         fds[0] = .{
             .fd = tty,
-            .events = std.os.POLL.IN,
+            .events = std.posix.POLL.IN,
             .revents = undefined,
         };
     }
@@ -56,7 +56,7 @@ pub fn main() anyerror!void {
     var buf: [16]u8 = undefined;
     var done = false;
     while (!done) {
-        _ = try std.os.poll(&fds, -1);
+        _ = try std.posix.poll(&fds, -1);
 
         const read = try term.readInput(&buf);
         var it = spoon.inputParser(buf[0..read]);
@@ -67,11 +67,11 @@ pub fn main() anyerror!void {
             } else if (in.eqlDescription("s")) {
                 if (try intp.step(&ioContext)) |code| {
                     try term.cook();
-                    term.deinit();
+                    term.deinit() catch {};
                     intp.deinit();
                     file.close();
                     std.process.argsFree(gpa, args);
-                    std.os.exit(@intCast(code));
+                    std.posix.exit(@intCast(code));
                 }
                 try render();
             }

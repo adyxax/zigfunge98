@@ -17,7 +17,7 @@ Current limitations are :
 
 ## Dependencies
 
-zig is required. Only zig version 0.11 on linux amd64 (Gentoo) is being regularly tested.
+zig is required. Only zig version 0.13 on linux amd64 (Gentoo) is being regularly tested.
 
 ## Quick Install
 

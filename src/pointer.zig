@@ -44,7 +44,7 @@ pub const Pointer = struct {
                 p.step(false);
             },
             'j' => {
-                var n = p.ss.toss.pop();
+                const n = p.ss.toss.pop();
                 var j: usize = 0;
                 if (n > 0) {
                     while (j < n) : (j += 1) {
@@ -379,7 +379,7 @@ pub const Pointer = struct {
         p.lastCharWasSpace = false;
         // Initializing the random number generator
         var seed: u64 = undefined;
-        try std.os.getrandom(std.mem.asBytes(&seed));
+        try std.posix.getrandom(std.mem.asBytes(&seed));
         p.rand = std.rand.DefaultPrng.init(seed);
         p.timestamp = timestamp;
         return p;
